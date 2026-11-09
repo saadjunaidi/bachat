@@ -39,7 +39,7 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
     if (v == null) { missing.add(cur); continue; }
     const p = payee(t.desc);
     const c = catOf(t, p, d);
-    A.push({ ...t, amt: v, payee: p, cat: c, type: CTYPE[c] || 'expense', m: t.date.slice(0, 7), orig: cur === view ? null : { amt: t.amt, cur } });
+    A.push({ ...t, amt: v, payee: p, cat: c, type: kindOf(d.accounts[t.acct]) === 'loan' ? 'transfer' : CTYPE[c] || 'expense', m: t.date.slice(0, 7), orig: cur === view ? null : { amt: t.amt, cur } });
   }
   A.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));
 

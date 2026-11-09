@@ -11,7 +11,7 @@ export type View = 'overview' | 'spending' | 'goals' | 'debts' | 'giving' | 'sta
 export const VIEWS: View[] = ['overview', 'spending', 'goals', 'debts', 'giving', 'statements'];
 export type Filter = 'all' | 'out' | 'in' | 'unk';
 
-export interface UI { month: string | null; cat: string | null; flt: Filter; q: string; lim: number; editGoal: string | null; tx: string | null; settingsOpen: boolean }
+export interface UI { month: string | null; cat: string | null; flt: Filter; q: string; lim: number; editGoal: string | null; editDebt: string | null; tx: string | null; settingsOpen: boolean }
 
 interface Store {
   data: Data;
@@ -38,7 +38,7 @@ const readView = (): View => {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setDataRaw] = useState<Data>(() => loadData() ?? sampleData());
-  const [ui, setUiRaw] = useState<UI>({ month: null, cat: null, flt: 'all', q: '', lim: 60, editGoal: null, tx: null, settingsOpen: false });
+  const [ui, setUiRaw] = useState<UI>({ month: null, cat: null, flt: 'all', q: '', lim: 60, editGoal: null, editDebt: null, tx: null, settingsOpen: false });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const d = loadData();

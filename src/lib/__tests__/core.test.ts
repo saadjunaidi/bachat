@@ -85,6 +85,23 @@ describe('categories', () => {
 });
 
 describe('import', () => {
+  it('creates and updates a Debt when a card statement is committed', () => {
+    const r1 = [{ date: '2026-10-01', desc: 'SHOP', amt: -500, bal: 60000 }, { date: '2026-10-05', desc: 'SHOP2', amt: -100, bal: -60600 }];
+    const a = commit(blank(), 'Visa', r1, { kind: 'card', currency: 'USD' });
+    expect(a.data.accounts.Visa).toMatchObject({ kind: 'card', currency: 'USD' });
+    expect(a.data.debts[0]).toMatchObject({ kind: 'card', acct: 'Visa', currency: 'USD', balance: 60600, asOf: '2026-10-05', apr: 36, minPay: 0, minPct: 5, revolving: false });
+    const b = commit(a.data, 'Visa', [{ date: '2026-11-02', desc: 'SHOP3', amt: -9, bal: 70000 }], { kind: 'card', currency: 'USD' });
+    expect(b.data.debts).toHaveLength(1);
+    expect(b.data.debts[0].balance).toBe(70000);
+    expect(b.data.debts[0].asOf).toBe('2026-11-02');
+  });
+  it('loan account transactions are transfers and do not change spending', () => {
+    const rows = [{ date: '2026-10-05', desc: 'EMI DEBIT', amt: -9000, bal: 100000 }];
+    const d = commit(blank(), 'Car loan', rows, { kind: 'loan', currency: 'INR' }).data;
+    expect(d.debts[0]).toMatchObject({ kind: 'loan', apr: 0, minPay: 0, balance: 100000 });
+    const M = build(d);
+    expect(M.MO['2026-10'].exp).toBe(0);
+  });
   it('skips transactions already imported when statements overlap', () => {
     const p = ok(analyse(BANK1, {}));
     const { rows } = extract(p, p.map);

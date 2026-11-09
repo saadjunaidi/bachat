@@ -60,7 +60,7 @@ export interface Data {
   debts: Debt[];
   gifts: Gift[];
   assets: Assets;
-  mappings: Record<string, { map: ColumnMap; acct: string }>; // header signature -> mapping
+  mappings: Record<string, { map: ColumnMap; acct: string; kind?: AcctKind; currency?: string }>; // header signature -> mapping
   settings: Settings;
   sample: boolean;
   lastBackup?: string;

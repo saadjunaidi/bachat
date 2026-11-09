@@ -1,4 +1,4 @@
-import type { ColumnMap, Data } from './types';
+import type { AcctKind, ColumnMap, Data } from './types';
 import { iso } from './format';
 
 export type Cell = string | number | Date | null | undefined | boolean;
@@ -10,6 +10,8 @@ export interface Parsed {
   sig: string;
   known: string | null;
   acct: string;
+  kind?: AcctKind;
+  currency?: string;
 }
 
 export interface Row { date: string; desc: string; amt: number; bal: number | null }
@@ -103,7 +105,7 @@ export function analyse(rows: Cell[][], mappings: Data['mappings']): Parsed | { 
   const body = rows.slice(best + 1).filter((r) => r.some((c) => String(c).trim() !== ''));
   const sig = headers.join('|').toLowerCase();
   const saved = mappings[sig];
-  return { headers, body, map: saved ? { ...saved.map } : guessMap(headers), sig, known: saved ? saved.acct : null, acct: saved ? saved.acct : '' };
+  return { headers, body, map: saved ? { ...saved.map } : guessMap(headers), sig, known: saved ? saved.acct : null, acct: saved ? saved.acct : '', kind: saved?.kind, currency: saved?.currency };
 }
 
 export function extract(p: { headers: string[]; body: Cell[][] }, m: ColumnMap): { rows: Row[]; skipped: number } {

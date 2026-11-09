@@ -3,10 +3,10 @@ import { addM, dlong, mlabel, money, pct, short } from '../lib/format';
 import { insights } from '../lib/model';
 import { useStore } from '../store';
 import { BalanceChart, DonutChart, FlowChart } from '../components/charts';
-import { Delta, Dot, EmptyState, Kpi, Panel } from '../components/ui';
+import { Delta, Dot, EmptyState, Explain, Kpi, Panel } from '../components/ui';
 
 export function Overview() {
-  const { M, month: m, go } = useStore();
+  const { M, month: m, go, P, data } = useStore();
   if (!m) return <EmptyState title="No transactions yet" onImport={() => go('statements')} />;
   const o = M.MO[m];
   const p = M.MO[addM(m, -1)];
@@ -18,6 +18,12 @@ export function Overview() {
   const tp = Object.entries(payees).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const ms = M.months.slice(-12);
   const partial = !M.isComplete(m);
+  const lt = P.longTerm;
+  const ltName = data.settings.longTerm.type === 'retirement' ? 'Retirement' : 'Financial freedom';
+  const hasDebts = data.debts.some((d) => d.balance > 0);
+  const owned = M.bankBal + M.assetsTotal;
+  const pillCls = lt.status === 'behind' ? 'bad' : 'good';
+  const pillTxt = lt.status === 'ahead' ? 'Ahead of target' : lt.status === 'on' ? 'On track' : 'Behind target';
 
   return (
     <>
@@ -26,7 +32,20 @@ export function Overview() {
         {M.end && <p className="muted small">Statements up to {dlong(M.end)}</p>}
       </div>
       <div className="grid kpis">
-        <Kpi hero label="Saved" value={short(o.saved)} sub={<span className="small muted">{isFinite(o.rate) ? pct(o.rate) + ' of income' : 'No income this month'}</span>} />
+        <Kpi hero label="Guilt-free this month" value={P.ready ? short(P.guiltFree) : '–'} sub={<>
+          <span className="small muted">{!P.ready ? 'Import a full month of statements to see this.'
+            : P.shortfall > 0 ? `Short ${short(P.shortfall)}/mo.${P.biggest ? ` ${P.biggest} is the biggest.` : ''}`
+            : 'Yours to enjoy. Goals, debts and giving are already covered.'}</span>
+          {P.ready && <Explain><p>{P.explain}</p>{P.lines.map((l) => <p key={l.key}><b>{l.label}:</b> {l.explain}</p>)}</Explain>}
+        </>} />
+        <Kpi label="Net worth" value={short(M.netWorth)} sub={<span className="small muted">{short(owned)} owned − {short(M.debtTotal)} owed</span>} />
+        {hasDebts && <Kpi label="Debt-free by" value={P.debtFree ? mlabel(P.debtFree) : 'Never at minimums'} sub={<button className="linkbtn small" onClick={() => go('debts')}>See the plan</button>} />}
+        <Kpi label={ltName} value={lt.projected ? lt.projected.slice(0, 4) : '–'} sub={lt.status === 'needAge'
+          ? <button className="linkbtn small" onClick={() => go('goals')}>Set your age on Goals</button>
+          : <span><span className={'pill ' + pillCls}>{pillTxt}</span></span>} />
+      </div>
+      <div className="grid kpis">
+        <Kpi label="Saved" value={short(o.saved)} sub={<span className="small muted">{isFinite(o.rate) ? pct(o.rate) + ' of income' : 'No income this month'}</span>} />
         <Kpi label="Money in" value={short(o.inc)} sub={<Delta cur={o.inc} prev={p?.inc} goodUp />} />
         <Kpi label="Spent" value={short(o.exp)} sub={<Delta cur={o.exp} prev={p?.exp} goodUp={false} />} />
         <Kpi label="In the bank" value={M.hasBal ? short(M.totalBal) : '–'} sub={<span className="small muted">{M.names.length} account{M.names.length === 1 ? '' : 's'}</span>} />

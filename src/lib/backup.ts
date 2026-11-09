@@ -17,10 +17,10 @@ function unb64(s: string) {
 
 /** Text backup: "BACHAT1:" + base64(gzip(json)). Falls back to uncompressed "BACHAT0:" on old browsers. */
 export async function makeBackup(d: Data): Promise<string> {
-  const payload: Backup = { app: 'bachat', v: 1, at: new Date().toISOString(), state: { accounts: d.accounts, txns: d.txns, rules: d.rules, overrides: d.overrides, goals: d.goals, debts: d.debts, gifts: d.gifts, assets: d.assets, mappings: d.mappings, settings: d.settings } };
+  const payload: Backup = { app: 'bachat', v: 2, at: new Date().toISOString(), state: { accounts: d.accounts, txns: d.txns, rules: d.rules, overrides: d.overrides, goals: d.goals, debts: d.debts, gifts: d.gifts, assets: d.assets, mappings: d.mappings, settings: d.settings } };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   if (typeof CompressionStream !== 'undefined') {
-    const st = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
+    const st = new Response(bytes).body!.pipeThrough(new CompressionStream('gzip'));
     return 'BACHAT1:' + b64(new Uint8Array(await new Response(st).arrayBuffer()));
   }
   return 'BACHAT0:' + b64(bytes);
@@ -35,7 +35,7 @@ export async function readBackup(text: string): Promise<Backup> {
       let bytes = unb64(m[2]);
       if (m[1] === '1') {
         if (typeof DecompressionStream === 'undefined') throw new Error('old');
-        const st = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+        const st = new Response(bytes).body!.pipeThrough(new DecompressionStream('gzip'));
         bytes = new Uint8Array(await new Response(st).arrayBuffer());
       }
       j = JSON.parse(new TextDecoder().decode(bytes));
@@ -47,7 +47,7 @@ export async function readBackup(text: string): Promise<Backup> {
     if (msg === 'format') throw new Error("That doesn't look like a Bachat backup. Copy the whole code, starting with BACHAT.");
     throw new Error('This backup is incomplete or damaged. Copy it again from the other device, making sure nothing is cut off.');
   }
-  if (!j || j.app !== 'bachat' || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a Bachat backup.");
+  if (!j || j.app !== 'bachat' || (j.v !== 1 && j.v !== 2) || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a Bachat backup.");
   return j;
 }
 
@@ -66,12 +66,21 @@ export function mergeData(cur: Data, b: Backup): { data: Data; added: number } {
   for (const t of st.txns) if (!have.has(t.id)) { txns.push(t); have.add(t.id); added++; }
   const gid = new Set(base.goals.map((g) => g.id));
   const goals = base.goals.concat((st.goals || []).filter((g) => !gid.has(g.id)));
+  const did = new Set(base.debts.map((x) => x.id));
+  const debts = base.debts.concat(st.debts.filter((x) => !did.has(x.id)));
+  const fid = new Set(base.gifts.map((x) => x.id));
+  const gifts = base.gifts.concat(st.gifts.filter((x) => !fid.has(x.id)));
+  const { currency: _c, ...nums } = base.assets;
+  const assets = Object.values(nums).some((n) => n !== 0) ? base.assets : st.assets;
   return {
     added,
     data: {
       ...base,
       txns,
       goals,
+      debts,
+      gifts,
+      assets,
       accounts: { ...(st.accounts || {}), ...base.accounts },
       rules: { ...(st.rules || {}), ...base.rules },
       overrides: { ...(st.overrides || {}), ...base.overrides },

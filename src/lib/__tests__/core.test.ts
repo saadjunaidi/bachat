@@ -131,6 +131,30 @@ describe('backup', () => {
     await expect(readBackup(code.slice(0, -40))).rejects.toThrow(/incomplete or damaged/);
     await expect(readBackup('hello')).rejects.toThrow(/doesn't look like a Bachat backup/);
   });
+  it('v2 round-trips debts and gifts', async () => {
+    const d = big();
+    d.debts = [{ id: 'd1', name: 'Card', kind: 'card', currency: 'INR', balance: 1000, asOf: '2026-10-01', apr: 36, minPay: 100, revolving: true }];
+    d.gifts = [{ id: 'f1', date: '2026-10-01', amount: 100, currency: 'INR', kind: 'sadaqah' }];
+    const b = await readBackup(await makeBackup(d));
+    expect(b.v).toBe(2);
+    const r = restoreData(b);
+    expect(r.debts[0].apr).toBe(36);
+    expect(r.gifts).toHaveLength(1);
+  });
+  it('restores a v1 backup with an old-shape goal', async () => {
+    const v1 = JSON.stringify({ app: 'bachat', v: 1, at: '2026-01-01T00:00:00Z', state: { accounts: {}, txns: [], rules: {}, overrides: {}, mappings: {}, settings: {}, goals: [{ id: 'g1', name: 'Car', target: 500000, date: '2027-06', saved: 0, ret: 7 }] } });
+    const r = restoreData(await readBackup(v1));
+    expect(r.goals[0].price).toBe(500000);
+  });
+  it('merge keeps current debts and adds new ones', async () => {
+    const mk = (apr: number) => ({ id: 'd1', name: 'Card', kind: 'card' as const, currency: 'INR', balance: 1000, asOf: '2026-10-01', apr, minPay: 100, revolving: true });
+    const theirs = blank(); theirs.debts = [mk(10), { ...mk(20), id: 'd2' }];
+    const b = await readBackup(await makeBackup(theirs));
+    const mine = blank(); mine.debts = [mk(36)];
+    const r = mergeData(mine, b);
+    expect(r.data.debts).toHaveLength(2);
+    expect(r.data.debts.find((x) => x.id === 'd1')!.apr).toBe(36);
+  });
   it('merges without duplicating', async () => {
     const full = big();
     const b = await readBackup(await makeBackup(full));

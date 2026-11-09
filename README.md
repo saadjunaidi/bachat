@@ -4,7 +4,10 @@ Import bank statements, see where your money goes, and plan savings goals. Insta
 
 - **Overview**: money in vs. out (12 months) with savings rate, spending by category, biggest payees, total balance trend, automatic insights
 - **Spending**: categories vs. 3-month average, searchable transactions, tap to re-categorise (optionally for every payment to that payee)
-- **Goals**: target + date → monthly saving needed, on-track status, projected date; financial-freedom number and years to reach it
+- **Goals**: short-term goals with a good / stretch / bad verdict (can you afford it by the date, or by waiting, or by slowing your long-term goal), plus a long-term goal (financial freedom or retirement) with target number, projected date and on-track status
+- **Debts**: cards and loans with balance, APR and minimums; payoff plan (avalanche or snowball), debt-free date and interest saved with an extra amount
+- **Giving**: log donations, planned monthly giving and the impact of what you give; with Islamic guidance switched on, also a zakat calculator (nisab on gold or silver) and a spiritual-reward section, which are shown only then
+- **Currencies**: accounts, debts, goals, gifts and assets can each be in their own currency, converted to your view currency; rates are fetched only if anything (an account, debt, goal, gift or asset) uses a second currency
 - **Statements**: Excel/CSV upload or paste, automatic header and column detection, remembers each bank's layout, skips already-imported transactions, backup file / share / code with restore and merge
 
 ## Tech
@@ -19,7 +22,7 @@ Import bank statements, see where your money goes, and plan savings goals. Insta
 | Tests | Vitest: parsing, categorisation, de-duplication, backup round-trip, savings maths |
 | Serving | nginx in a container (Cloud Run) or Firebase Hosting, with a strict Content-Security-Policy |
 
-Fonts are bundled locally (Fontsource). The app makes **no requests to any other site**.
+Fonts are bundled locally (Fontsource). The only request it ever makes is for exchange rates, and only if anything (an account, debt, goal, gift or asset) uses a second currency. That request contains currency codes and dates, never your data.
 
 ```
 src/

@@ -4,6 +4,7 @@ import { autoCat, payee } from '../categories';
 import { commit } from '../importer';
 import { makeBackup, mergeData, readBackup, restoreData } from '../backup';
 import { build } from '../model';
+import { EMPTY_FX, foreignCurrencies } from '../fx';
 import { monthsTo, needed } from '../finance';
 import { blank } from '../types';
 import { short, money } from '../format';
@@ -85,6 +86,71 @@ describe('categories', () => {
 });
 
 describe('import', () => {
+  it('creates and updates a Debt when a card statement is committed', () => {
+    const r1 = [{ date: '2026-10-01', desc: 'SHOP', amt: -500, bal: 60000 }, { date: '2026-10-05', desc: 'SHOP2', amt: -100, bal: -60600 }];
+    const a = commit(blank(), 'Visa', r1, { kind: 'card', currency: 'USD' });
+    expect(a.data.accounts.Visa).toMatchObject({ kind: 'card', currency: 'USD' });
+    expect(a.data.debts[0]).toMatchObject({ kind: 'card', acct: 'Visa', currency: 'USD', balance: 60600, asOf: '2026-10-05', apr: 36, minPay: 0, minPct: 5, revolving: false });
+    const b = commit(a.data, 'Visa', [{ date: '2026-11-02', desc: 'SHOP3', amt: -9, bal: 70000 }], { kind: 'card', currency: 'USD' });
+    expect(b.data.debts).toHaveLength(1);
+    expect(b.data.debts[0].balance).toBe(70000);
+    expect(b.data.debts[0].asOf).toBe('2026-11-02');
+  });
+  it('does not roll a debt back with an older statement, and handles negative-for-owed balances', () => {
+    const m = { kind: 'card' as const, currency: 'INR' };
+    const a = commit(blank(), 'C', [{ date: '2026-10-30', desc: 'X', amt: -5, bal: 70000 }], m);
+    const b = commit(a.data, 'C', [{ date: '2026-09-30', desc: 'Y', amt: -5, bal: 50000 }], m);
+    expect(b.data.debts[0].balance).toBe(70000);
+    const n = commit(blank(), 'N', [{ date: '2026-10-01', desc: 'A', amt: -60, bal: -60 }, { date: '2026-10-02', desc: 'B', amt: -100.49, bal: -160.49 }], m);
+    expect(n.data.debts[0].balance).toBe(160.49);
+  });
+  it('first import over sample data keeps nothing from the sample but currency, Islamic guidance and age', async () => {
+    const { sampleData } = await import('../sample');
+    // A USD user looking at the sample: sample has 40 g gold, ₹2,00,000 investments, gold 7750, silver 90, target age 50.
+    const s = sampleData();
+    s.settings = { ...s.settings, currency: 'USD', islamic: true, age: '41' };
+    const d = commit(s, 'Chase', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: 100 }], { kind: 'bank', currency: 'USD' }).data;
+    expect(d.sample).toBe(false);
+    expect(d.assets).toEqual({ currency: 'USD', goldG: 0, silverG: 0, investments: 0, owed: 0, stock: 0, other: 0 });
+    expect(d.settings.goldPrice).toBe(0);
+    expect(d.settings.silverPrice).toBe(0);
+    expect(d.settings.longTerm.targetAge).toBeNull();
+    expect(d.settings.currency).toBe('USD');
+    expect(d.settings.islamic).toBe(true);
+    expect(d.settings.age).toBe('41');
+    expect(d.goals).toEqual([]);
+    expect(d.debts).toEqual([]);
+    expect(d.gifts).toEqual([]);
+    expect(foreignCurrencies(d)).toEqual([]);
+    // Net worth = the $100 balance only (was $314,000-style figures from the sample's INR assets before).
+    expect(build(d, EMPTY_FX('USD')).netWorth).toBe(100);
+  });
+  it('first import over sample data does not keep the sample\'s own age', async () => {
+    const { sampleData } = await import('../sample');
+    // The sample sets age 33 for its demo plan; a user who never entered an age must not inherit it.
+    const s = sampleData();
+    const d = commit(s, 'HDFC', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: 100 }]).data;
+    expect(d.sample).toBe(false);
+    expect(d.settings.age).toBe('');
+  });
+  it('blank() uses the given currency for assets and settings', () => {
+    expect(blank('USD').assets.currency).toBe('USD');
+    expect(blank('USD').settings.currency).toBe('USD');
+    expect(blank().assets.currency).toBe('INR');
+  });
+  it('card payments are transfers, not income', () => {
+    const d = commit(blank(), 'V', [{ date: '2026-10-01', desc: 'SHOP', amt: -120.5, bal: null }, { date: '2026-10-02', desc: 'PAYMENT RECEIVED - THANK YOU', amt: 500, bal: null }], { kind: 'card', currency: 'INR' }).data;
+    const M = build(d);
+    expect(M.MO['2026-10'].inc).toBe(0);
+    expect(M.MO['2026-10'].exp).toBe(120.5);
+  });
+  it('loan account transactions are transfers and do not change spending', () => {
+    const rows = [{ date: '2026-10-05', desc: 'EMI DEBIT', amt: -9000, bal: 100000 }];
+    const d = commit(blank(), 'Car loan', rows, { kind: 'loan', currency: 'INR' }).data;
+    expect(d.debts[0]).toMatchObject({ kind: 'loan', apr: 0, minPay: 0, balance: 100000 });
+    const M = build(d);
+    expect(M.MO['2026-10'].exp).toBe(0);
+  });
   it('skips transactions already imported when statements overlap', () => {
     const p = ok(analyse(BANK1, {}));
     const { rows } = extract(p, p.map);
@@ -114,7 +180,7 @@ describe('backup', () => {
     const d = blank();
     for (let i = 0; i < 700; i++) d.txns.push({ id: 'A|' + i, acct: 'A', date: '2026-10-01', desc: 'UPI/SWIGGY ₹ test ' + i, amt: -i, bal: 1e5 - i, seq: i });
     d.accounts = { A: { name: 'A' } };
-    d.goals = [{ id: 'g1', name: '₹50 lakh', target: 5e6, date: '2027-06', link: true, saved: 0, ret: 7 }];
+    d.goals = [{ id: 'g1', name: '₹50 lakh', price: 5e6, currency: 'INR', date: '2027-06', saved: 0, ret: 7, stretchChoice: 'wait' }];
     return d;
   };
   it('round-trips through a compressed code, even with line breaks', async () => {
@@ -130,6 +196,62 @@ describe('backup', () => {
     const code = await makeBackup(big());
     await expect(readBackup(code.slice(0, -40))).rejects.toThrow(/incomplete or damaged/);
     await expect(readBackup('hello')).rejects.toThrow(/doesn't look like a Bachat backup/);
+  });
+  it('v2 round-trips debts and gifts', async () => {
+    const d = big();
+    d.debts = [{ id: 'd1', name: 'Card', kind: 'card', currency: 'INR', balance: 1000, asOf: '2026-10-01', apr: 36, minPay: 100, revolving: true }];
+    d.gifts = [{ id: 'f1', date: '2026-10-01', amount: 100, currency: 'INR', kind: 'sadaqah' }];
+    const b = await readBackup(await makeBackup(d));
+    expect(b.v).toBe(2);
+    const r = restoreData(b);
+    expect(r.debts[0].apr).toBe(36);
+    expect(r.gifts).toHaveLength(1);
+  });
+  it('restores a v1 backup with an old-shape goal', async () => {
+    const v1 = JSON.stringify({ app: 'bachat', v: 1, at: '2026-01-01T00:00:00Z', state: { accounts: {}, txns: [], rules: {}, overrides: {}, mappings: {}, settings: {}, goals: [{ id: 'g1', name: 'Car', target: 500000, date: '2027-06', saved: 0, ret: 7 }] } });
+    const r = restoreData(await readBackup(v1));
+    expect(r.goals[0].price).toBe(500000);
+  });
+  it('merge keeps current debts and adds new ones', async () => {
+    const mk = (apr: number) => ({ id: 'd1', name: 'Card', kind: 'card' as const, currency: 'INR', balance: 1000, asOf: '2026-10-01', apr, minPay: 100, revolving: true });
+    const theirs = blank(); theirs.debts = [mk(10), { ...mk(20), id: 'd2' }];
+    const b = await readBackup(await makeBackup(theirs));
+    const mine = blank(); mine.debts = [mk(36)];
+    const r = mergeData(mine, b);
+    expect(r.data.debts).toHaveLength(2);
+    expect(r.data.debts.find((x) => x.id === 'd1')!.apr).toBe(36);
+  });
+  it('rejects newer backup versions but loads a missing v', async () => {
+    const mk = (v?: number) => JSON.stringify({ app: 'bachat', ...(v === undefined ? {} : { v }), at: '2026-01-01T00:00:00Z', state: { txns: [] } });
+    await expect(readBackup(mk(3))).rejects.toThrow(/newer version of Bachat/);
+    expect(restoreData(await readBackup(mk())).txns).toEqual([]);
+  });
+  it('merge: gifts by id (current wins) and assets rule', async () => {
+    const gift = (id: string, amount: number) => ({ id, date: '2026-10-01', amount, currency: 'INR', kind: 'sadaqah' as const });
+    const theirs = blank(); theirs.gifts = [gift('f1', 1), gift('f2', 2)]; theirs.assets = { ...theirs.assets, goldG: 50 };
+    const b = await readBackup(await makeBackup(theirs));
+    const mine = blank(); mine.gifts = [gift('f1', 99)]; mine.assets = { ...mine.assets, silverG: 5 };
+    const r = mergeData(mine, b);
+    expect(r.data.gifts).toHaveLength(2);
+    expect(r.data.gifts.find((g) => g.id === 'f1')!.amount).toBe(99);
+    expect(r.data.assets.goldG).toBe(0);
+    expect(r.data.assets.silverG).toBe(5);
+    expect(mergeData(blank(), b).data.assets.goldG).toBe(50);
+  });
+  it('merge over sample data drops the sample assets and prices', async () => {
+    const { sampleData } = await import('../sample');
+    const theirs = blank('USD');
+    theirs.accounts = { Chase: { name: 'Chase', kind: 'bank', currency: 'USD' } };
+    const b = await readBackup(await makeBackup(theirs));
+    const s = sampleData();
+    s.settings = { ...s.settings, currency: 'USD' };
+    const r = mergeData(s, b).data;
+    // Backup assets are all 0 in USD; sample's 40 g gold / ₹2,00,000 investments must not survive.
+    expect(r.assets).toEqual({ currency: 'USD', goldG: 0, silverG: 0, investments: 0, owed: 0, stock: 0, other: 0 });
+    expect(r.settings.goldPrice).toBe(0);
+    expect(r.settings.silverPrice).toBe(0);
+    expect(r.txns).toEqual([]);
+    expect(foreignCurrencies(r)).toEqual([]);
   });
   it('merges without duplicating', async () => {
     const full = big();
@@ -154,5 +276,27 @@ describe('finance', () => {
     expect(short(1234567)).toBe('₹12.3 L');
     expect(short(10000000)).toBe('₹1 Cr');
     expect(money(185000)).toBe('₹1,85,000');
+  });
+});
+
+describe('sample data', () => {
+  it('fills every new screen with a ready plan', async () => {
+    const { sampleData } = await import('../sample');
+    const { plan } = await import('../plan');
+    const { EMPTY_FX } = await import('../fx');
+    const { addM, thisMonth } = await import('../format');
+    const d = sampleData();
+    const M = build(d);
+    const now = addM(M.months[M.months.length - 1], 1); // sample ends last month, so now is the month after
+    expect(now).toBe(thisMonth());
+    const P = plan(d, M, EMPTY_FX('INR'), now);
+    expect(d.sample).toBe(true);
+    expect(P.ready).toBe(true);
+    expect(P.guiltFree).toBeGreaterThan(0);
+    expect(P.debtFree).not.toBeNull();
+    const v = (n: string) => P.goals.find((r) => r.id === d.goals.find((g) => g.name === n)!.id)!.verdict;
+    expect(v('New phone')).toBe('good');
+    expect(v('Umrah')).toBe('stretch');
+    expect(v('Luxury car')).toBe('bad');
   });
 });

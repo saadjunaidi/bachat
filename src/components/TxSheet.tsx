@@ -3,6 +3,7 @@ import { CATS, CCOL, TYPE_LABEL } from '../lib/categories';
 import { dlong, money } from '../lib/format';
 import type { CatType } from '../lib/types';
 import { useStore } from '../store';
+import { FxNote } from './ui';
 
 const GROUPS: CatType[] = ['income', 'expense', 'investment', 'transfer'];
 
@@ -51,6 +52,7 @@ export function TxSheet() {
           </div>
           <b className={'num ' + (t.amt > 0 ? 'up' : '')}>{t.amt > 0 ? '+' : '−'}{money(Math.abs(t.amt))}</b>
         </div>
+        {t.orig && <p className="small muted">Original amount: <FxNote orig={t.orig} /></p>}
         <p className="small muted" style={{ overflowWrap: 'anywhere' }}>{t.desc}</p>
         {GROUPS.map((g) => (
           <div key={g}>

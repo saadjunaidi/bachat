@@ -1,8 +1,8 @@
-import { CCOL } from '../lib/categories';
+import { CCOL, CTYPE, isNeed } from '../lib/categories';
 import { dlabel, mlabel, money, pct } from '../lib/format';
 import { priorAvg, type ATxn } from '../lib/model';
 import { useStore, type Filter } from '../store';
-import { Chip, Dot, EmptyState, Panel } from '../components/ui';
+import { Chip, Dot, EmptyState, FxNote, Panel } from '../components/ui';
 
 const FILTERS: [Filter, string][] = [['all', 'All'], ['out', 'Money out'], ['in', 'Money in'], ['unk', 'Needs a category']];
 
@@ -11,7 +11,7 @@ function TxRow({ t, onOpen }: { t: ATxn; onOpen: () => void }) {
     <button className="row" onClick={onOpen}>
       <span style={{ minWidth: 0 }}>
         <span className="t" style={{ display: 'block' }}>{t.payee}</span>
-        <span className="m"><span>{dlabel(t.date)}</span><Chip cat={t.cat} /><span className="ellipsis">{t.acct}</span></span>
+        <span className="m"><span>{dlabel(t.date)}</span><Chip cat={t.cat} /><span className="ellipsis">{t.acct}</span><FxNote orig={t.orig} /></span>
       </span>
       <span className={'a ' + (t.amt > 0 ? 'in' : '')}>{t.amt > 0 ? '+' : '−'}{money(Math.abs(t.amt))}</span>
     </button>
@@ -19,7 +19,8 @@ function TxRow({ t, onOpen }: { t: ATxn; onOpen: () => void }) {
 }
 
 export function Spending() {
-  const { M, month: m, ui, setUi, go } = useStore();
+  const { M, month: m, ui, setUi, go, data, setData } = useStore();
+  const setNeed = (c: string, need: boolean) => setData((d) => ({ ...d, settings: { ...d.settings, needs: { ...d.settings.needs, [c]: need } } }));
   if (!m) return <EmptyState title="No spending yet" onImport={() => go('statements')} />;
   const o = M.MO[m];
   const cats = Object.entries(o.cats).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]);
@@ -46,8 +47,11 @@ export function Spending() {
             {cats.length ? cats.map(([c, v]) => {
               const pa = priorAvg(M, m, c);
               const d = pa ? (v - pa) / pa : null;
+              const apart = c === 'Loan EMI' || c === 'Donations' || CTYPE[c] === 'transfer';
+              const need = isNeed(c, data.settings);
               return (
-                <button key={c} className="catrow" aria-pressed={c === fcat} onClick={() => setUi({ cat: c === fcat ? null : c, lim: 60 })}>
+                <div key={c} style={{ borderTop: '1px solid var(--line)' }}>
+                <button className="catrow" aria-pressed={c === fcat} onClick={() => setUi({ cat: c === fcat ? null : c, lim: 60 })}>
                   <span className="cname"><Dot color={CCOL[c]} /><span>{c}</span></span>
                   <span className="num" style={{ fontWeight: 600 }}>{money(v)}</span>
                   <span className="track"><i style={{ width: Math.max(2, (v / max) * 100) + '%', background: CCOL[c] }} /></span>
@@ -56,6 +60,15 @@ export function Spending() {
                     {d != null && isFinite(d) && <> · <span className={d > 0 ? 'down' : 'up'}>{d > 0 ? '▲' : '▼'} {pct(Math.abs(d))}</span> vs 3-month average</>}
                   </span>
                 </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 10 }}>
+                  {apart ? <span className="small muted">Planned separately</span> : (
+                    <div className="seg" role="group" aria-label={`${c}: need or want`}>
+                      <button aria-pressed={need} onClick={() => setNeed(c, true)}>Need</button>
+                      <button aria-pressed={!need} onClick={() => setNeed(c, false)}>Want</button>
+                    </div>
+                  )}
+                </div>
+                </div>
               );
             }) : <p className="empty">No spending this month.</p>}
           </div>

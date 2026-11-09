@@ -1,4 +1,4 @@
-import type { ColumnMap, Data } from './types';
+import type { AcctKind, ColumnMap, Data } from './types';
 import { iso } from './format';
 
 export type Cell = string | number | Date | null | undefined | boolean;
@@ -10,6 +10,8 @@ export interface Parsed {
   sig: string;
   known: string | null;
   acct: string;
+  kind?: AcctKind;
+  currency?: string;
 }
 
 export interface Row { date: string; desc: string; amt: number; bal: number | null }
@@ -42,13 +44,15 @@ export function pdate(v: Cell): Date | null {
   return null;
 }
 
-/** "1,85,000.00", "₹ 649", "(1,200)", "2,340.50 Dr" -> number */
+/** "1,85,000.00", "₹ 649", "$1,234.50", "PKR 1,000", "(1,200)", "2,340.50 Dr" -> number */
 export function num(v: Cell): number {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return v;
   let s = String(v).trim();
+  if (/^[-+]?(\d+\.?\d*|\.\d+)e[-+]?\d+$/i.test(s)) return parseFloat(s);
+  s = s.replace(/\s*(cr|dr)\.?$/i, '').replace(/[A-Za-z$€£¥₹৳₨﷼]+\.?/g, '').replace(/[,\s]/g, '');
   const neg = /^\(.*\)$/.test(s) || /^-/.test(s);
-  s = s.replace(/₹|inr|rs\.?/gi, '').replace(/[,\s]/g, '').replace(/(cr|dr)\.?$/i, '').replace(/[()\-+]/g, '');
+  s = s.replace(/[()\-+]/g, '');
   const n = parseFloat(s);
   return isNaN(n) ? 0 : neg ? -n : n;
 }
@@ -101,7 +105,7 @@ export function analyse(rows: Cell[][], mappings: Data['mappings']): Parsed | { 
   const body = rows.slice(best + 1).filter((r) => r.some((c) => String(c).trim() !== ''));
   const sig = headers.join('|').toLowerCase();
   const saved = mappings[sig];
-  return { headers, body, map: saved ? { ...saved.map } : guessMap(headers), sig, known: saved ? saved.acct : null, acct: saved ? saved.acct : '' };
+  return { headers, body, map: saved ? { ...saved.map } : guessMap(headers), sig, known: saved ? saved.acct : null, acct: saved ? saved.acct : '', kind: saved?.kind, currency: saved?.currency };
 }
 
 export function extract(p: { headers: string[]; body: Cell[][] }, m: ColumnMap): { rows: Row[]; skipped: number } {

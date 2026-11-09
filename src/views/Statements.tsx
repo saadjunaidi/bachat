@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyse, extract, guessAcct, parseText, readFileRows, type Cell, type Parsed } from '../lib/parse';
 import { commit } from '../lib/importer';
 import { makeBackup, mergeData, readBackup, restoreData, saveBackupFile, type Backup } from '../lib/backup';
-import { ago, dlong, money } from '../lib/format';
+import { ago, CURRENCIES, dlong, getCurrency, money, sym } from '../lib/format';
 import { sampleData } from '../lib/sample';
-import { blank, type ColumnMap, type Mode } from '../lib/types';
+import { blank, kindOf, type AcctKind, type Assets, type ColumnMap, type Mode } from '../lib/types';
 import { useStore } from '../store';
 import { ConfirmButton, Panel } from '../components/ui';
 import { useInstall } from '../components/install';
@@ -42,9 +42,18 @@ function Picker({ onRows }: { onRows: (rows: Cell[][], name: string) => void }) 
 }
 
 function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDone: () => void }) {
-  const { data, setData, toast } = useStore();
+  const { data, setData, toast, setUi, go: nav } = useStore();
   const [map, setMap] = useState<ColumnMap>(p.map);
   const [acct, setAcct] = useState(p.acct);
+  const known = data.sample ? undefined : data.accounts[p.acct];
+  const [kind, setKind] = useState<AcctKind>(known ? kindOf(known) : p.kind ?? 'bank');
+  const [cur, setCur] = useState(known?.currency ?? p.currency ?? data.settings.currency ?? getCurrency());
+  // Typing (or picking) an existing account's name presets its kind and currency, so a re-import doesn't reset them.
+  const changeAcct = (name: string) => {
+    setAcct(name);
+    const a = data.sample ? undefined : data.accounts[name.trim()];
+    if (a) { setKind(kindOf(a)); setCur(a.currency || data.settings.currency); }
+  };
   const ex = useMemo(() => extract(p, map), [p, map]);
   const prev = ex.rows.slice(-6).reverse();
   const accts = data.sample ? [] : Object.keys(data.accounts);
@@ -59,18 +68,30 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
   );
   const go = () => {
     const name = acct.trim() || 'My bank account';
-    const r = commit(data, name, ex.rows);
-    setData(() => ({ ...r.data, mappings: { ...r.data.mappings, [p.sig]: { map, acct: name } } }));
+    const r = commit(data, name, ex.rows, { kind, currency: cur });
+    setData(() => ({ ...r.data, mappings: { ...r.data.mappings, [p.sig]: { map, acct: name, kind, currency: cur } } }));
     toast(`${name}: ${r.added} added${r.dup ? ', ' + r.dup + ' already imported' : ''}${data.sample ? ' · sample data cleared' : ''}`);
-    onDone();
+    const nd = kind === 'bank' || data.debts.some((x) => x.acct === name) ? undefined : r.data.debts.find((x) => x.acct === name);
+    if (nd && (!nd.apr || !nd.minPay)) { setUi({ editDebt: nd.id }); nav('debts'); }
+    else onDone();
   };
   return (
     <>
       <div className="panel-h"><h2>Check the columns</h2><button className="linkbtn small" onClick={onCancel}>Start over</button></div>
       {p.known && <p className="pill good" style={{ alignSelf: 'start' }}>Same layout as your {p.known} import</p>}
       <div className="field"><label htmlFor="m-acct">Which account is this?</label>
-        <input id="m-acct" type="text" list="acctlist" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder="e.g. HDFC Savings" />
+        <input id="m-acct" type="text" list="acctlist" value={acct} onChange={(e) => changeAcct(e.target.value)} placeholder="e.g. HDFC Savings" />
         <datalist id="acctlist">{accts.map((a) => <option key={a} value={a} />)}</datalist></div>
+      <div className="field"><span className="label" id="m-kind-l">What is this statement?</span>
+        <div className="seg" role="group" aria-labelledby="m-kind-l">
+          {([['bank', 'Bank account'], ['card', 'Credit card'], ['loan', 'Loan']] as [AcctKind, string][]).map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>{l}</button>
+          ))}
+        </div></div>
+      <div className="field"><label htmlFor="m-cur">Currency of this account</label>
+        <select id="m-cur" value={cur} onChange={(e) => setCur(e.target.value)}>
+          {(CURRENCIES.includes(cur) ? CURRENCIES : [cur, ...CURRENCIES]).map((c) => <option key={c} value={c}>{c}</option>)}
+        </select></div>
       <div className="field"><label htmlFor="m-mode">How does the statement show money in and out?</label>
         <select id="m-mode" value={map.mode} onChange={(e) => setMap({ ...map, mode: e.target.value as Mode })}>
           <option value="split">Separate Withdrawal and Deposit columns</option>
@@ -86,7 +107,7 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
       <div className="scroll"><table>
         <thead><tr><th>Date</th><th>Description</th><th className="r">Amount</th><th className="r">Balance</th></tr></thead>
         <tbody>{prev.length ? prev.map((r, i) => (
-          <tr key={i}><td>{dlong(r.date)}</td><td>{r.desc}</td><td className={'r ' + (r.amt > 0 ? 'up' : '')}>{r.amt > 0 ? '+' : '−'}{money(Math.abs(r.amt))}</td><td className="r">{r.bal != null ? money(r.bal) : '–'}</td></tr>
+          <tr key={i}><td>{dlong(r.date)}</td><td>{r.desc}</td><td className={'r ' + (r.amt > 0 ? 'up' : '')}>{r.amt > 0 ? '+' : '−'}{money(Math.abs(r.amt), cur)}</td><td className="r">{r.bal != null ? money(r.bal, cur) : '–'}</td></tr>
         )) : <tr><td colSpan={4}>No transactions found with these columns. Check the choices above.</td></tr>}</tbody>
       </table></div>
       <div className="formactions"><button className="btn" disabled={!ex.rows.length || !acct.trim()} onClick={go}>Import {ex.rows.length} transactions</button></div>
@@ -106,6 +127,46 @@ function ImportPanel() {
   return (
     <Panel className="span2" id="imp">
       {p ? <Mapper key={p.sig + p.body.length} p={p} onCancel={() => setP(null)} onDone={() => { setP(null); go('overview'); }} /> : <Picker onRows={onRows} />}
+    </Panel>
+  );
+}
+
+const KIND: Record<AcctKind, string> = { bank: 'Bank', card: 'Card', loan: 'Loan' };
+
+/* ---------- Other things you own ---------- */
+function NumField({ id, label, value, onSave }: { id: string; label: string; value: number; onSave: (n: number) => void }) {
+  const [t, setT] = useState(value ? String(value) : '');
+  useEffect(() => setT(value ? String(value) : ''), [value]);
+  return (
+    <div className="field"><label htmlFor={id}>{label}</label>
+      <input id={id} type="text" inputMode="decimal" value={t} placeholder="0" onChange={(e) => setT(e.target.value)}
+        onBlur={() => { const n = Math.max(0, parseFloat(t.replace(/,/g, '')) || 0); if (n !== value) onSave(n); setT(n ? String(n) : ''); }} /></div>
+  );
+}
+
+function OwnPanel() {
+  const { data, setData } = useStore();
+  const a = data.assets, st = data.settings;
+  const set = (p: Partial<Assets>) => setData((d) => ({ ...d, assets: { ...d.assets, ...p } }));
+  const price = (p: { goldPrice?: number; silverPrice?: number }) => setData((d) => ({ ...d, settings: { ...d.settings, ...p } }));
+  const cur = CURRENCIES.includes(a.currency) ? CURRENCIES : [a.currency, ...CURRENCIES];
+  return (
+    <Panel className="span3" id="own" title="Other things you own">
+      <p className="small muted">Used for your net worth{st.islamic ? ', long-term goal and zakat' : ' and long-term goal'}.</p>
+      <div className="form two">
+        <NumField id="o-gold" label="Gold (grams)" value={a.goldG} onSave={(n) => set({ goldG: n })} />
+        <NumField id="o-silver" label="Silver (grams)" value={a.silverG} onSave={(n) => set({ silverG: n })} />
+        <NumField id="o-inv" label="Investments" value={a.investments} onSave={(n) => set({ investments: n })} />
+        <NumField id="o-owed" label="Money owed to you" value={a.owed} onSave={(n) => set({ owed: n })} />
+        <NumField id="o-stock" label="Business stock" value={a.stock} onSave={(n) => set({ stock: n })} />
+        <NumField id="o-other" label="Other" value={a.other} onSave={(n) => set({ other: n })} />
+        <div className="field"><label htmlFor="o-cur">Currency of these amounts</label>
+          <select id="o-cur" value={a.currency} onChange={(e) => set({ currency: e.target.value })}>
+            {cur.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select></div>
+        <NumField id="o-gp" label={`Gold price per gram (${sym(st.currency)})`} value={st.goldPrice} onSave={(n) => price({ goldPrice: n })} />
+        <NumField id="o-sp" label={`Silver price per gram (${sym(st.currency)})`} value={st.silverPrice} onSave={(n) => price({ silverPrice: n })} />
+      </div>
     </Panel>
   );
 }
@@ -216,7 +277,7 @@ export function Statements() {
           <div>
             {accs.length ? accs.map((a) => (
               <div className="acct" key={a.name}>
-                <div style={{ minWidth: 0 }}><b style={{ overflowWrap: 'anywhere' }}>{a.name}</b><p className="small muted">{a.n} transactions · {dlong(a.first)} → {dlong(a.last)}</p></div>
+                <div style={{ minWidth: 0 }}><b style={{ overflowWrap: 'anywhere' }}>{a.name}</b><p className="small muted"><span className="pill info">{KIND[kindOf(data.accounts[a.name])]} · {data.accounts[a.name]?.currency || data.settings.currency}</span> {a.n} transactions · {dlong(a.first)} → {dlong(a.last)}</p></div>
                 <div style={{ textAlign: 'right' }}><b className="num">{a.bal != null ? money(a.bal) : '–'}</b><p className="small muted">{a.balDate ? 'on ' + dlong(a.balDate) : 'no balance column'}</p></div>
                 <div style={{ gridColumn: '1/-1' }}>
                   <ConfirmButton className="linkbtn small danger-link" confirmText={'Tap again to remove ' + a.name}
@@ -228,6 +289,7 @@ export function Statements() {
           </div>
           {data.sample && <p className="small muted">These are sample accounts. Your first import replaces them.</p>}
         </Panel>
+        <OwnPanel />
         <BackupPanel />
         <Panel className="span3" title="Settings">
           <div className="form two">

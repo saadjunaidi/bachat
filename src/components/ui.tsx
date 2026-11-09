@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CCOL } from '../lib/categories';
-import { pct } from '../lib/format';
+import { money, pct } from '../lib/format';
 
 export function Kpi({ label, value, sub, hero }: { label: string; value: ReactNode; sub?: ReactNode; hero?: boolean }) {
   return (
@@ -55,4 +55,18 @@ export function ConfirmButton({ children, confirmText, onConfirm, className = 'b
       {armed ? confirmText : children}
     </button>
   );
+}
+
+export function Explain({ children }: { children: ReactNode }) {
+  return (
+    <details className="explain">
+      <summary>How we worked this out</summary>
+      <div className="explain-b">{children}</div>
+    </details>
+  );
+}
+
+export function FxNote({ orig }: { orig: { amt: number; cur: string } | null }) {
+  if (!orig) return null;
+  return <span className="fxnote small muted">{money(orig.amt, orig.cur)} ({orig.cur})</span>;
 }

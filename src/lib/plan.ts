@@ -2,6 +2,7 @@ import { monthlyDebtPayment, payoff, toPayDebts } from './debt';
 import { needed } from './finance';
 import { addM, mdiff, mlabel, short } from './format';
 import { toView, type Fx } from './fx';
+import { zakatFor } from './giving';
 import type { Model } from './model';
 import type { Data, LongTerm, ShortGoal } from './types';
 
@@ -234,7 +235,8 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   const freed = (k: number, idx: number | null, amt: number) => (idx != null && k > idx ? amt : 0);
 
   // Giving: planned monthly giving + zakat (Task 7 seam).
-  const zakatM = Math.max(0, opts.zakatMonthly ?? 0);
+  // Zakat is computed here unless a caller overrides it. `now` is only a month, so zakat is valued as of its 1st.
+  const zakatM = Math.max(0, opts.zakatMonthly ?? (s.islamic ? (() => { const z = zakatFor(d, M, fx, `${now}-01`); return z.above ? z.due / 12 : 0; })() : 0));
   const planned = Math.max(0, s.givingPlan || 0);
   const giving = zakatM + planned;
 

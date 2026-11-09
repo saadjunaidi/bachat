@@ -415,3 +415,22 @@ describe('fix round 1', () => {
     expect(line(P, 'debt').explain).toContain("Your extra ₹5K/mo isn't applied because no card or loan is added");
   });
 });
+
+describe('plan giving line with zakat', () => {
+  it('Islamic on, zakat due 69800 → giving ≈ 5816.67 a month', () => {
+    const d = data();
+    d.settings.islamic = true;
+    d.settings.silverPrice = 90;
+    d.settings.goldPrice = 7750;
+    d.assets.goldG = 40;
+    d.assets.investments = 200000;
+    d.debts = [debt({ kind: 'card', balance: 238000, revolving: false })];
+    const P = plan(d, model({ inc: 100000 }, { bankBal: 2520000 }), FX, NOW);
+    expect(line(P, 'giving').amount).toBeCloseTo(69800 / 12, 6);
+  });
+  it('Islamic off → no zakat', () => {
+    const d = data();
+    d.assets.investments = 5000000;
+    expect(line(plan(d, model({ inc: 100000 }), FX, NOW), 'giving').amount).toBe(0);
+  });
+});

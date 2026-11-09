@@ -187,6 +187,12 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
   return { results, used: start - remaining, ltCut };
 }
 
+/** Monthly share of the yearly zakat due (0 when below nisab or no metal price is set). */
+const zakatMonthlyFor = (d: Data, M: Model, fx: Fx): number => {
+  const z = zakatFor(d, M, fx);
+  return z.above ? z.due / 12 : 0;
+};
+
 export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}): Plan {
   const a = M.a3;
   const s = d.settings;
@@ -235,8 +241,8 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   const freed = (k: number, idx: number | null, amt: number) => (idx != null && k > idx ? amt : 0);
 
   // Giving: planned monthly giving + zakat (Task 7 seam).
-  // Zakat is computed here unless a caller overrides it. `now` is only a month, so zakat is valued as of its 1st.
-  const zakatM = Math.max(0, opts.zakatMonthly ?? (s.islamic ? (() => { const z = zakatFor(d, M, fx, `${now}-01`); return z.above ? z.due / 12 : 0; })() : 0));
+  // Zakat is computed here unless a caller overrides it (tests).
+  const zakatM = Math.max(0, opts.zakatMonthly ?? (s.islamic ? zakatMonthlyFor(d, M, fx) : 0));
   const planned = Math.max(0, s.givingPlan || 0);
   const giving = zakatM + planned;
 

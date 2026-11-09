@@ -428,6 +428,12 @@ describe('plan giving line with zakat', () => {
     const P = plan(d, model({ inc: 100000 }, { bankBal: 2520000 }), FX, NOW);
     expect(line(P, 'giving').amount).toBeCloseTo(69800 / 12, 6);
   });
+  it('Islamic on but no metal prices set → giving is only the planned amount', () => {
+    const d = data();
+    d.settings.islamic = true;
+    d.settings.givingPlan = 1000;
+    expect(line(plan(d, model({ inc: 100000 }, { bankBal: 2520000 }), FX, NOW), 'giving').amount).toBe(1000);
+  });
   it('Islamic off → no zakat', () => {
     const d = data();
     d.assets.investments = 5000000;

@@ -9,7 +9,7 @@ export const ZAKAT_RATE = 0.025;
 export const LUNAR_YEAR_DAYS = 354;
 
 export interface ZakatInput { cash: number; goldG: number; silverG: number; goldPrice: number; silverPrice: number; investments: number; owed: number; stock: number; other: number; deductions: number; basis: 'silver' | 'gold' }
-export interface ZakatResult { wealth: number; nisab: number; above: boolean; due: number; lines: { label: string; amount: number }[] }
+export interface ZakatResult { wealth: number; nisab: number; above: boolean; needsPrice: boolean; due: number; lines: { label: string; amount: number }[] }
 
 export function zakat(i: ZakatInput): ZakatResult {
   const lines = [
@@ -24,8 +24,10 @@ export function zakat(i: ZakatInput): ZakatResult {
   ];
   const wealth = lines.reduce((t, l) => t + l.amount, 0);
   const nisab = i.basis === 'gold' ? GOLD_NISAB_G * i.goldPrice : SILVER_NISAB_G * i.silverPrice;
-  const above = wealth >= nisab && wealth > 0;
-  return { wealth, nisab, above, due: above ? wealth * ZAKAT_RATE : 0, lines };
+  // With no price for the chosen basis the nisab is unknown (0): never treat that as "above".
+  const needsPrice = (i.basis === 'gold' ? i.goldPrice : i.silverPrice) <= 0;
+  const above = !needsPrice && wealth >= nisab && wealth > 0;
+  return { wealth, nisab, above, needsPrice, due: above ? wealth * ZAKAT_RATE : 0, lines };
 }
 
 /** Debts due within a year: a card counts its whole balance; a loan counts 12 EMIs, never more than the balance. */
@@ -37,13 +39,14 @@ const DAY = 86400000;
 const utc = (s: string) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
 
 /** First date >= today in the series anchor + k × 354 days (k ≥ 0). UTC date math, so DST never shifts a day. */
-export function nextZakatDate(anchor: string, today: string): string {
+export function nextZakatDate(anchor: string, today: string): string | null {
   const a = utc(anchor), t = utc(today);
+  if (!Number.isFinite(a) || !Number.isFinite(t)) return null;
   const k = t <= a ? 0 : Math.ceil((t - a) / (LUNAR_YEAR_DAYS * DAY));
   return new Date(a + k * LUNAR_YEAR_DAYS * DAY).toISOString().slice(0, 10);
 }
 
-export function zakatFor(d: Data, M: Model, fx: Fx, today: string): ZakatResult {
+export function zakatFor(d: Data, M: Model, fx: Fx): ZakatResult {
   const s = d.settings, a = d.assets;
   const conv = (n: number) => toView(n, a.currency || fx.view, fx) ?? 0; // no rate: 0 (already in M.fxMissing)
   // Every card balance is owed now (revolving or paid in full), so cards are not filtered like toPayDebts does.
@@ -53,7 +56,6 @@ export function zakatFor(d: Data, M: Model, fx: Fx, today: string): ZakatResult 
     if (balance === null || minPay === null || balance <= 0) continue;
     debts.push({ id: x.id, name: x.name, kind: x.kind, balance, apr: x.apr, minPay, minPct: x.minPct });
   }
-  void today; // the figure is as of today's balances; the date only matters to callers (nextZakatDate)
   return zakat({
     cash: M.bankBal, goldG: a.goldG, silverG: a.silverG, goldPrice: s.goldPrice, silverPrice: s.silverPrice,
     investments: conv(a.investments), owed: conv(a.owed), stock: conv(a.stock), other: conv(a.other),

@@ -36,6 +36,10 @@ describe('deductionsDue', () => {
 });
 
 describe('nextZakatDate', () => {
+  it('malformed anchor gives null', () => {
+    expect(nextZakatDate('', '2026-11-09')).toBeNull();
+    expect(nextZakatDate('garbage', '2026-11-09')).toBeNull();
+  });
   it('anchor + 354 days', () => {
     expect(nextZakatDate('2026-03-14', '2026-11-09')).toBe('2027-03-03');
     expect(nextZakatDate('2026-03-14', '2026-03-14')).toBe('2026-03-14');
@@ -43,13 +47,34 @@ describe('nextZakatDate', () => {
   });
 });
 
+describe('zakat without a price', () => {
+  it('needsPrice, not above, nothing due', () => {
+    const r = zakat(zi({ basis: 'silver', silverPrice: 0, cash: 1000000 }));
+    expect(r.needsPrice).toBe(true);
+    expect(r.above).toBe(false);
+    expect(r.due).toBe(0);
+    expect(r.lines).toHaveLength(8);
+    expect(zakat(zi({ basis: 'silver', silverPrice: 90, cash: 1000000 })).needsPrice).toBe(false);
+  });
+});
+
 describe('zakatFor', () => {
+  it('converts a USD asset and USD debt at today\'s rate', () => {
+    const fx = { ...EMPTY_FX('INR'), today: { base: 'inr', date: '2026-11-09', r: { USD: 0.01 } } };
+    const d = blank();
+    d.settings.silverPrice = 90;
+    d.assets.currency = 'USD';
+    d.assets.investments = 1000; // 100000 INR
+    d.debts = [{ id: 'c', name: 'Card', kind: 'card', currency: 'USD', balance: 200, asOf: '2026-11-01', apr: 0, minPay: 0, revolving: true }]; // 20000 INR
+    const r = zakatFor(d, model({ bankBal: 500000 }), fx);
+    expect(r.wealth).toBeCloseTo(500000 + 100000 - 20000, 6);
+  });
   it('counts paid-in-full cards as deductions and converts nothing for view currency', () => {
     const d = blank();
     d.settings.silverPrice = 90;
     d.assets.investments = 200000;
     d.debts = [{ id: 'c', name: 'Card', kind: 'card', currency: 'INR', balance: 68000, asOf: '2026-11-01', apr: 0, minPay: 0, revolving: false }];
-    const r = zakatFor(d, model({ bankBal: 1000000 }), FX, '2026-11-09');
+    const r = zakatFor(d, model({ bankBal: 1000000 }), FX);
     expect(r.wealth).toBe(1000000 + 200000 - 68000);
   });
 });

@@ -1,4 +1,4 @@
-import { blank, type AcctKind, type Data, type Debt, type Txn } from './types';
+import { clearSample, type AcctKind, type Data, type Debt, type Txn } from './types';
 import type { Row } from './parse';
 
 /**
@@ -7,7 +7,7 @@ import type { Row } from './parse';
  * Identical rows inside one file are kept apart by counting occurrences.
  */
 export function commit(d: Data, acct: string, rows: Row[], meta?: { kind: AcctKind; currency: string }): { data: Data; added: number; dup: number } {
-  const base: Data = d.sample ? { ...blank(), settings: d.settings, assets: d.assets } : d;
+  const base: Data = d.sample ? clearSample(d) : d;
   const have = new Set(base.txns.filter((t) => t.acct === acct).map((t) => t.id));
   const occ: Record<string, number> = {};
   const txns: Txn[] = base.txns.slice();

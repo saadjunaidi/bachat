@@ -1,4 +1,4 @@
-import { blank, migrate, type Data } from './types';
+import { clearSample, migrate, type Data } from './types';
 import { iso } from './format';
 
 export interface Backup { app: 'bachat'; v: number; at: string; state: Omit<Data, 'sample' | 'lastBackup'> }
@@ -59,7 +59,7 @@ export function restoreData(b: Backup): Data {
 
 /** Adds a backup to existing data without duplicating transactions or goals. */
 export function mergeData(cur: Data, b: Backup): { data: Data; added: number } {
-  const base: Data = cur.sample ? { ...blank(), settings: cur.settings } : cur;
+  const base: Data = cur.sample ? clearSample(cur) : cur;
   const st = migrate(b.state);
   const have = new Set(base.txns.map((t) => t.id));
   const txns = base.txns.slice();

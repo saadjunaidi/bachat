@@ -4,6 +4,7 @@ import { autoCat, payee } from '../categories';
 import { commit } from '../importer';
 import { makeBackup, mergeData, readBackup, restoreData } from '../backup';
 import { build } from '../model';
+import { EMPTY_FX, foreignCurrencies } from '../fx';
 import { monthsTo, needed } from '../finance';
 import { blank } from '../types';
 import { short, money } from '../format';
@@ -103,9 +104,31 @@ describe('import', () => {
     const n = commit(blank(), 'N', [{ date: '2026-10-01', desc: 'A', amt: -60, bal: -60 }, { date: '2026-10-02', desc: 'B', amt: -100.49, bal: -160.49 }], m);
     expect(n.data.debts[0].balance).toBe(160.49);
   });
-  it('keeps assets when importing over sample data', () => {
-    const d = { ...blank(), sample: true, assets: { ...blank().assets, goldG: 10 } };
-    expect(commit(d, 'A', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: null }]).data.assets.goldG).toBe(10);
+  it('first import over sample data keeps nothing from the sample but currency, Islamic guidance and age', async () => {
+    const { sampleData } = await import('../sample');
+    // A USD user looking at the sample: sample has 40 g gold, ₹2,00,000 investments, gold 7750, silver 90, target age 50.
+    const s = sampleData();
+    s.settings = { ...s.settings, currency: 'USD', islamic: true, age: '41' };
+    const d = commit(s, 'Chase', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: 100 }], { kind: 'bank', currency: 'USD' }).data;
+    expect(d.sample).toBe(false);
+    expect(d.assets).toEqual({ currency: 'USD', goldG: 0, silverG: 0, investments: 0, owed: 0, stock: 0, other: 0 });
+    expect(d.settings.goldPrice).toBe(0);
+    expect(d.settings.silverPrice).toBe(0);
+    expect(d.settings.longTerm.targetAge).toBeNull();
+    expect(d.settings.currency).toBe('USD');
+    expect(d.settings.islamic).toBe(true);
+    expect(d.settings.age).toBe('41');
+    expect(d.goals).toEqual([]);
+    expect(d.debts).toEqual([]);
+    expect(d.gifts).toEqual([]);
+    expect(foreignCurrencies(d)).toEqual([]);
+    // Net worth = the $100 balance only (was $314,000-style figures from the sample's INR assets before).
+    expect(build(d, EMPTY_FX('USD')).netWorth).toBe(100);
+  });
+  it('blank() uses the given currency for assets and settings', () => {
+    expect(blank('USD').assets.currency).toBe('USD');
+    expect(blank('USD').settings.currency).toBe('USD');
+    expect(blank().assets.currency).toBe('INR');
   });
   it('card payments are transfers, not income', () => {
     const d = commit(blank(), 'V', [{ date: '2026-10-01', desc: 'SHOP', amt: -120.5, bal: null }, { date: '2026-10-02', desc: 'PAYMENT RECEIVED - THANK YOU', amt: 500, bal: null }], { kind: 'card', currency: 'INR' }).data;
@@ -206,6 +229,21 @@ describe('backup', () => {
     expect(r.data.assets.goldG).toBe(0);
     expect(r.data.assets.silverG).toBe(5);
     expect(mergeData(blank(), b).data.assets.goldG).toBe(50);
+  });
+  it('merge over sample data drops the sample assets and prices', async () => {
+    const { sampleData } = await import('../sample');
+    const theirs = blank('USD');
+    theirs.accounts = { Chase: { name: 'Chase', kind: 'bank', currency: 'USD' } };
+    const b = await readBackup(await makeBackup(theirs));
+    const s = sampleData();
+    s.settings = { ...s.settings, currency: 'USD' };
+    const r = mergeData(s, b).data;
+    // Backup assets are all 0 in USD; sample's 40 g gold / ₹2,00,000 investments must not survive.
+    expect(r.assets).toEqual({ currency: 'USD', goldG: 0, silverG: 0, investments: 0, owed: 0, stock: 0, other: 0 });
+    expect(r.settings.goldPrice).toBe(0);
+    expect(r.settings.silverPrice).toBe(0);
+    expect(r.txns).toEqual([]);
+    expect(foreignCurrencies(r)).toEqual([]);
   });
   it('merges without duplicating', async () => {
     const full = big();

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { CURRENCIES } from '../lib/format';
-import { foreignCurrencies } from '../lib/fx';
+import { convertSettings, foreignCurrencies } from '../lib/fx';
 import { useStore } from '../store';
 
 /** Bottom sheet (phones) / dialog (desktop) for app settings. */
 export function Settings() {
-  const { ui, setUi, data, setData, M, fx, fxLoading } = useStore();
+  const { ui, setUi, data, setData, M, fx, fxLoading, toast } = useStore();
   const ref = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const open = ui.settingsOpen;
@@ -28,6 +28,13 @@ export function Settings() {
   const curs = foreignCurrencies(data);
   const view = s.currency.toUpperCase();
   const opts = CURRENCIES.includes(view) ? CURRENCIES : [view, ...CURRENCIES];
+  // Settings amounts are in the view currency: convert them at today's rate (or reset them) instead of relabelling.
+  const changeCurrency = (to: string) => {
+    const r = convertSettings(s, s.currency, to, fx);
+    setData((d) => ({ ...d, settings: r.settings }));
+    setDraft({});
+    if (r.reset) toast("Some amounts were reset because there's no exchange rate yet");
+  };
 
   let status: string | null = null;
   if (curs.length) {
@@ -44,7 +51,7 @@ export function Settings() {
         <div className="panel-h"><h2 id="set-t">Settings</h2></div>
         <div className="field">
           <label htmlFor="set-cur">Currency</label>
-          <select id="set-cur" value={view} onChange={(e) => set({ currency: e.target.value })}>
+          <select id="set-cur" value={view} onChange={(e) => changeCurrency(e.target.value)}>
             {opts.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>

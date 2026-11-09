@@ -82,8 +82,18 @@ export const DEFAULT_SETTINGS: Settings = defaultSettings();
 
 const blankAssets = (currency: string): Assets => ({ currency, goldG: 0, silverG: 0, investments: 0, owed: 0, stock: 0, other: 0 });
 
-export function blank(): Data {
-  return { accounts: {}, txns: [], rules: {}, overrides: {}, goals: [], debts: [], gifts: [], assets: blankAssets('INR'), mappings: {}, settings: defaultSettings(), sample: false };
+export function blank(currency = 'INR'): Data {
+  return { accounts: {}, txns: [], rules: {}, overrides: {}, goals: [], debts: [], gifts: [], assets: blankAssets(currency), mappings: {}, settings: defaultSettings(currency), sample: false };
+}
+
+/**
+ * Empty data to replace the sample with: nothing from the sample (assets, metal prices, target age, giving plan…)
+ * carries over, only the user's own choices of view currency, Islamic guidance and age.
+ */
+export function clearSample(d: Data): Data {
+  const s = d.settings;
+  const b = blank(s.currency);
+  return { ...b, settings: { ...b.settings, islamic: s.islamic, age: s.age } };
 }
 
 /** Bring any stored or restored shape (v1 or current) up to the current Data shape. Idempotent. */

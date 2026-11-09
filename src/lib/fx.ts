@@ -1,4 +1,4 @@
-import type { Data } from './types';
+import type { Data, Settings } from './types';
 
 export interface RateSet { base: string; date: string; r: Record<string, number> } // 1 base = r[CUR] CUR
 export interface Fx { view: string; today: RateSet | null; months: Record<string, RateSet>; overrides: Record<string, number>; fetchedAt: number | null; failed: boolean }
@@ -17,6 +17,27 @@ export function toView(amt: number, cur: string, fx: Fx, month?: string): number
   return rate ? amt / rate : null;
 }
 
+/**
+ * Settings amounts (extra debt payment, giving plan, metal prices, impact costs) are in the view currency. When the
+ * view currency changes from `from` to `to`, convert them at today's rate: 1 `to` = toView(1, to, fx) `from`, so an
+ * amount A in `from` is A ÷ toView(1, to, fx) in `to` (rounded to 2 decimals). `fx` is the current Fx (view `from`).
+ * With no rate, the amounts are reset (0, impact null) and `reset` says so if anything non-zero was lost.
+ * Manual rates are always cleared: they were per 1 unit in the old view currency.
+ */
+export function convertSettings(s: Settings, from: string, to: string, fx: Fx): { settings: Settings; reset: boolean } {
+  const out: Settings = { ...s, currency: to, fxOverrides: {} };
+  if (from.toUpperCase() === to.toUpperCase()) return { settings: out, reset: false };
+  const per = fx.view.toUpperCase() === from.toUpperCase() ? toView(1, to.toUpperCase(), fx) : null; // `from` per 1 `to`
+  const conv = (n: number) => (per ? Math.round((n / per) * 100) / 100 : 0);
+  out.extra = conv(s.extra || 0);
+  out.givingPlan = conv(s.givingPlan || 0);
+  out.goldPrice = conv(s.goldPrice || 0);
+  out.silverPrice = conv(s.silverPrice || 0);
+  out.impact = s.impact && per ? { meal: conv(s.impact.meal), school: conv(s.impact.school) } : null;
+  const reset = !per && !!(s.extra || s.givingPlan || s.goldPrice || s.silverPrice || s.impact);
+  return { settings: out, reset };
+}
+
 export function foreignCurrencies(d: Data): string[] {
   const view = d.settings.currency.toUpperCase();
   const all = [
@@ -24,7 +45,8 @@ export function foreignCurrencies(d: Data): string[] {
     ...d.debts.map((x) => x.currency),
     ...d.goals.map((x) => x.currency),
     ...d.gifts.map((x) => x.currency),
-    d.assets.currency
+    // Gold and silver are in grams (priced in the view currency), so only these amounts use assets.currency.
+    ...(d.assets.investments || d.assets.owed || d.assets.stock || d.assets.other ? [d.assets.currency] : [])
   ];
   const out = new Set<string>();
   for (const c of all) {

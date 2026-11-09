@@ -47,6 +47,7 @@ export function num(v: Cell): number {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return v;
   let s = String(v).trim();
+  if (/^[-+]?(\d+\.?\d*|\.\d+)e[-+]?\d+$/i.test(s)) return parseFloat(s);
   s = s.replace(/\s*(cr|dr)\.?$/i, '').replace(/[A-Za-z$€£¥₹৳₨﷼]+\.?/g, '').replace(/[,\s]/g, '');
   const neg = /^\(.*\)$/.test(s) || /^-/.test(s);
   s = s.replace(/[()\-+]/g, '');

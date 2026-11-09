@@ -38,5 +38,6 @@ describe('num with currencies', () => {
     expect(num('PKR 1,000')).toBe(1000);
     expect(num('Rs. 500 Dr')).toBe(500);
     expect(num('AED -20')).toBe(-20);
+    expect(num('1e5')).toBe(100000);
   });
 });

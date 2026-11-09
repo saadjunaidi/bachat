@@ -10,12 +10,18 @@ export const CURRENCIES: string[] = [...PREFERRED, ...allCodes().filter((c) => !
 
 const SYMS: Record<string, string> = { INR: '₹', PKR: 'Rs ', BDT: '৳', NPR: 'Rs ', LKR: 'Rs ', AED: 'AED ', SAR: 'SAR ', QAR: 'QAR ', KWD: 'KWD ', OMR: 'OMR ', BHD: 'BHD ' };
 
+const symCache = new Map<string, string>();
 export const sym = (cur: string): string => {
   if (SYMS[cur]) return SYMS[cur];
+  const hit = symCache.get(cur);
+  if (hit !== undefined) return hit;
+  let out: string;
   try {
     const p = new Intl.NumberFormat('en', { style: 'currency', currency: cur, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((x) => x.type === 'currency');
-    return p ? p.value : cur + ' ';
-  } catch { return cur + ' '; }
+    out = p ? p.value : cur + ' ';
+  } catch { out = cur + ' '; }
+  symCache.set(cur, out);
+  return out;
 };
 
 let view = 'INR';

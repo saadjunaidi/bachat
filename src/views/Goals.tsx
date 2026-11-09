@@ -130,7 +130,7 @@ export function Goals() {
             <div className="field"><label htmlFor="f-infl">Inflation %</label>
               <input id="f-infl" type="number" step={0.5} value={st.longTerm.infl} onChange={(e) => setSetting('infl', e.target.value)} /></div>
           </div>
-          <p className="small muted">Freedom number = monthly spending × 12 × {st.longTerm.mult || 30}. The projection grows today's balance plus your average monthly saving at the return minus inflation, so figures are in today's rupees.</p>
+          <p className="small muted">Freedom number = monthly spending × 12 × {st.longTerm.mult || 30}. The projection grows today's balance plus your average monthly saving at the return minus inflation, so figures are in today's money.</p>
         </Panel>
       </div>
     </>

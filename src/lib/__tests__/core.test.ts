@@ -1,0 +1,158 @@
+import { describe, expect, it } from 'vitest';
+import { analyse, extract, parseText, pdate, num, type Parsed } from '../parse';
+import { autoCat, payee } from '../categories';
+import { commit } from '../importer';
+import { makeBackup, mergeData, readBackup, restoreData } from '../backup';
+import { build } from '../model';
+import { monthsTo, needed } from '../finance';
+import { blank } from '../types';
+import { short, money } from '../format';
+
+const ok = (p: ReturnType<typeof analyse>) => { if ('error' in p) throw new Error(p.error); return p as Parsed; };
+
+// Layout 1: separate Withdrawal / Deposit columns, header below bank details, totals row at the end
+const BANK1 = [
+  ['DETAILED STATEMENT'], ['Account No: XXXX1234'],
+  ['S No.', 'Value Date', 'Transaction Date', 'Cheque Number', 'Transaction Remarks', 'Withdrawal Amount(INR)', 'Deposit Amount(INR)', 'Balance(INR)'],
+  ['1', '01/10/2026', '01/10/2026', '', 'UPI/SWIGGY/XXiggy@icici/Sent using/ICICI Bank/219381274934/PTM', '632', '0', '848988.61'],
+  ['2', '04/11/2026', '04/11/2026', '', 'INF/INFT/046554391491/oct month salar/TOTALCART TECHN', '0', '60000', '908988.61'],
+  ['', '', '', '', 'Total', '632', '60000', '']
+];
+// Layout 2: Amount + Dr/Cr, balance with its own Dr/Cr, date with time, opening-balance row, out of order
+const BANK2 = [
+  ['Sl. No.', 'Transaction Date', 'Value Date', 'Description', 'Chq /Ref No.', 'Amount', 'Dr / Cr', 'Balance', 'Dr / Cr'],
+  ['', '', '', 'OPENING BALANCE', '', '', '', '40,000.00', 'CR'],
+  ['1', '18-10-2026 18:02', '18-10-2026', 'PCI/6924/Ralph Lauren Canada Co/rpoHal181026/18:02', '629112578700', '31,224.58', 'DR', '22,45,969.17', 'CR'],
+  ['2', '02-11-2026 21:24', '02-11-2026', 'Recd:IMPS/630627094807/Talk is Ch/KKBK/X4553/IMPS0', 'IMPS', '3,76,469.48', 'CR', '25,92,439.76', 'CR'],
+  ['3', '19-08-2026 22:25', '19-08-2026', 'UPI/Saad Junaidi/ICIC/213625598298/NA', 'UPI', '10,000.00', 'DR', '16,17,286.59', 'CR'],
+  ['4', '11-04-2026 23:02', '11-04-2026', 'ATW/6924/+D-960, NFCDelhiDLIN110426/23:02', '61', '20,000.00', 'DR', '8,82,907.11', 'CR']
+];
+
+describe('parsing', () => {
+  it('reads dates in Indian formats', () => {
+    expect(pdate('05/10/2026')?.getMonth()).toBe(9);
+    expect(pdate('05-10-26')?.getFullYear()).toBe(2026);
+    expect(pdate('05 Oct 2026')?.getDate()).toBe(5);
+    expect(pdate('2026-10-05')?.getDate()).toBe(5);
+    expect(pdate('31/02/2026')).toBeNull();
+    expect(pdate(46296)?.getMonth()).toBe(9); // Excel serial for 1 Oct 2026
+  });
+  it('reads Indian amounts', () => {
+    expect(num('1,85,000.00')).toBe(185000);
+    expect(num('₹ 649')).toBe(649);
+    expect(num('(1,200)')).toBe(-1200);
+    expect(num('2,340.50 Dr')).toBe(2340.5);
+  });
+  it('maps the Withdrawal / Deposit layout and skips non-transaction rows', () => {
+    const p = ok(analyse(BANK1, {}));
+    expect(p.map.mode).toBe('split');
+    expect(p.map.date).toBe(2);
+    const { rows, skipped } = extract(p, p.map);
+    expect(rows).toHaveLength(2);
+    expect(skipped).toBe(1);
+    expect(rows[0]).toMatchObject({ date: '2026-10-01', amt: -632, bal: 848988.61 });
+    expect(rows[1].amt).toBe(60000);
+  });
+  it('maps the Amount + Dr/Cr layout and sorts by date', () => {
+    const p = ok(analyse(BANK2, {}));
+    expect(p.map).toMatchObject({ mode: 'drcr', amount: 5, drcr: 6, balance: 7, date: 1 });
+    const { rows } = extract(p, p.map);
+    expect(rows.map((r) => r.date)).toEqual(['2026-04-11', '2026-08-19', '2026-10-18', '2026-11-02']);
+    expect(rows[3]).toMatchObject({ amt: 376469.48, bal: 2592439.76 });
+  });
+  it('reads pasted spreadsheet rows', () => {
+    const p = ok(analyse(parseText('Date\tNarration\tDebit\tCredit\tBalance\n05 Nov 2026\tPOS 4521XXXX NETFLIX.COM\t649\t\t1,20,000.00'), {}));
+    const { rows } = extract(p, p.map);
+    expect(rows[0]).toMatchObject({ amt: -649, bal: 120000 });
+  });
+  it('rejects files without a header row', () => {
+    expect('error' in analyse([['hello'], ['world']], {})).toBe(true);
+  });
+});
+
+describe('categories', () => {
+  it('finds payees and categories', () => {
+    expect(payee('UPI/SWIGGY/XXiggy@icici/Sent using')).toBe('Swiggy');
+    expect(payee('PCI/6924/Ralph Lauren Canada Co/rpo')).toBe('Ralph Lauren Canada Co');
+    expect(payee('ATL/6924/800001/+JAMIA NAGAR')).toBe('ATM cash');
+    expect(autoCat('UPI/SWIGGY INS/XXmart@icici', -315)).toBe('Groceries');
+    expect(autoCat('UPI/SWIGGY/x@icici', -632)).toBe('Food delivery');
+    expect(autoCat('ACH D- ICICI PRU MF SIP', -25000)).toBe('Investments');
+    expect(autoCat('UPI/Saad Junaidi/ICIC/2136', -10000, 'saad junaidi')).toBe('Transfer between accounts');
+    expect(autoCat('UPI/Coca Cola Store/x@ybl', -100)).toBe('Other UPI payments'); // "ola" must not match "cola"
+    expect(autoCat('Recd:IMPS/123/Talk is Ch/KKBK', 50000)).toBe('Other income');
+  });
+});
+
+describe('import', () => {
+  it('skips transactions already imported when statements overlap', () => {
+    const p = ok(analyse(BANK1, {}));
+    const { rows } = extract(p, p.map);
+    const a = commit(blank(), 'ICICI', rows);
+    expect(a.added).toBe(2);
+    const b = commit(a.data, 'ICICI', rows);
+    expect(b.added).toBe(0);
+    expect(b.dup).toBe(2);
+    expect(b.data.txns).toHaveLength(2);
+  });
+  it('keeps genuinely identical rows within one file', () => {
+    const rows = [{ date: '2026-10-01', desc: 'UPI/TEA STALL', amt: -20, bal: null }, { date: '2026-10-01', desc: 'UPI/TEA STALL', amt: -20, bal: null }];
+    expect(commit(blank(), 'X', rows).added).toBe(2);
+  });
+  it('builds monthly totals and the latest balance', () => {
+    const p = ok(analyse(BANK2, {}));
+    const d = commit({ ...blank(), settings: { ...blank().settings, selfName: 'Saad Junaidi' } }, 'Kotak', extract(p, p.map).rows).data;
+    const M = build(d);
+    expect(M.totalBal).toBe(2592439.76);
+    expect(M.MO['2026-08'].exp).toBe(0); // self transfer not counted as spending
+    expect(M.MO['2026-10'].cats['Shopping']).toBeCloseTo(31224.58);
+  });
+});
+
+describe('backup', () => {
+  const big = () => {
+    const d = blank();
+    for (let i = 0; i < 700; i++) d.txns.push({ id: 'A|' + i, acct: 'A', date: '2026-10-01', desc: 'UPI/SWIGGY ₹ test ' + i, amt: -i, bal: 1e5 - i, seq: i });
+    d.accounts = { A: { name: 'A' } };
+    d.goals = [{ id: 'g1', name: '₹50 lakh', target: 5e6, date: '2027-06', link: true, saved: 0, ret: 7 }];
+    return d;
+  };
+  it('round-trips through a compressed code, even with line breaks', async () => {
+    const code = await makeBackup(big());
+    expect(code.startsWith('BACHAT1:')).toBe(true);
+    const b = await readBackup(code.replace(/(.{76})/g, '$1\n'));
+    const d = restoreData(b);
+    expect(d.txns).toHaveLength(700);
+    expect(d.goals[0].name).toBe('₹50 lakh');
+    expect(d.sample).toBe(false);
+  });
+  it('explains damaged or wrong input', async () => {
+    const code = await makeBackup(big());
+    await expect(readBackup(code.slice(0, -40))).rejects.toThrow(/incomplete or damaged/);
+    await expect(readBackup('hello')).rejects.toThrow(/doesn't look like a Bachat backup/);
+  });
+  it('merges without duplicating', async () => {
+    const full = big();
+    const b = await readBackup(await makeBackup(full));
+    const part = { ...full, txns: full.txns.slice(0, 300) };
+    const r = mergeData(part, b);
+    expect(r.added).toBe(400);
+    expect(r.data.txns).toHaveLength(700);
+    expect(r.data.goals).toHaveLength(1);
+  });
+});
+
+describe('finance', () => {
+  it('works out monthly saving and time to goal', () => {
+    const n = needed(5_000_000, 3_600_000, 7, 0.07);
+    expect(n).toBeGreaterThan(170_000);
+    expect(n).toBeLessThan(185_000);
+    expect(monthsTo(5_000_000, 3_600_000, n, 0.07)).toBe(7);
+    expect(needed(100, 200, 5, 0)).toBe(0);
+  });
+  it('formats rupees the Indian way', () => {
+    expect(short(1234567)).toBe('₹12.3 L');
+    expect(short(10000000)).toBe('₹1 Cr');
+    expect(money(185000)).toBe('₹1,85,000');
+  });
+});

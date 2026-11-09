@@ -486,4 +486,51 @@ describe('fix round 2', () => {
   });
 });
 
+describe('final fixes', () => {
+  it('loan with EMI 0 (unknown): the observed EMI stays on the debt line', () => {
+    // Imported loan, EMI not entered yet: minPay 0. Observed Loan EMI average 14200.
+    // The loan is "EMI unknown": left out of the payoff and the minimums (0), so the fallback is the full 14200.
+    const d = data({ debts: [debt({ id: 'l', name: 'Car loan', balance: 472000, apr: 9.5, minPay: 0 })] });
+    const P = plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW);
+    expect(line(P, 'debt').amount).toBe(14200);
+    expect(line(P, 'debt').explain).toContain('14.2K');
+    // No loan with a known EMI → no payoff date.
+    expect(P.debtFree).toBeNull();
+    // 100000 − 50000 − 14200 = 35800 guilt-free
+    expect(P.guiltFree).toBeCloseTo(35800, 6);
+  });
+
+  it('some loans with EMI, one without: fallback = observed − known EMIs', () => {
+    // Known loan: 10000 balance, 0% APR, EMI 5000 → clears in 2 months (2027-01).
+    // Unknown loan: EMI 0. Observed EMI 14200 → fallback max(0, 14200 − 5000) = 9200.
+    // Debt line = 5000 + 9200 = 14200.
+    const d = data({ debts: [debt({ id: 'k', name: 'Bike loan', balance: 10000, minPay: 5000 }), debt({ id: 'u', name: 'Car loan', balance: 472000, apr: 9.5, minPay: 0 })] });
+    const P = plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW);
+    expect(line(P, 'debt').amount).toBe(14200);
+    expect(P.debtFree).toBe('2027-01');
+    // Known EMIs above the observed average: fallback never negative → 20000 + 0.
+    const d2 = data({ debts: [debt({ id: 'k', balance: 100000, minPay: 20000 }), debt({ id: 'u', balance: 5000, minPay: 0 })] });
+    expect(line(plan(d2, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(20000);
+  });
+
+  it('every loan has an EMI: no observed-EMI fallback (unchanged)', () => {
+    const d = data({ debts: [debt({ id: 'k', balance: 142000, minPay: 14200 })] });
+    // 14200 EMI only; the observed 14200 is the same loan, not added twice.
+    expect(line(plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(14200);
+  });
+
+  it("bad goal: 'earliest' is never before the goal's own date", () => {
+    // avail 1000, income 100. A: 2000 by now+2 → 1000/mo, good; takes everything (remaining 0) until month 2.
+    // B: 3000 by now+12, 30× income → bad. From S = 2 the full 1000 is free: 3000 / 1000 = 3 months → month 5,
+    // which is before B's own date (month 12). Clamped to the goal's date + 1 month = month 13.
+    const a = goal({ id: 'a', name: 'A', price: 2000, date: addMonths(2) });
+    const b = goal({ id: 'b', name: 'B', price: 3000, date: addMonths(12) });
+    const { results } = assessGoals([a, b], 1000, 100, 0, NOW, noSlip, FX);
+    expect(results.find((r) => r.id === 'a')!.verdict).toBe('good');
+    const rb = results.find((r) => r.id === 'b')!;
+    expect(rb.verdict).toBe('bad');
+    expect(rb.earliest).toBe(addMonths(13));
+  });
+});
+
 function addMonths(k: number) { return addM(NOW, k); }

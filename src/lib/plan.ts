@@ -136,7 +136,8 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
         if (best != null && m >= best) break;
         if (needed(adj(m), savedS, m - S, ret) <= start + MONEY_EPS) { best = m; break; }
       }
-      return best == null ? null : addM(now, best);
+      // Never before the goal's own date: a bad goal's earliest is at least a month after it.
+      return best == null ? null : addM(now, Math.max(best, n + 1));
     };
 
     // Good comes first: if it fits by its date, it needs no loan whatever its size.
@@ -248,11 +249,16 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   const span = a.months.length === 1 ? 'your last full month' : `the last ${a.months.length} full months`;
 
   // Debt line: minimums/EMIs of entered loans and revolving cards + chosen extra (only when there is debt to put it on),
-  // + the observed Loan EMI average when EMIs show up but no loan has been added.
-  const pd = toPayDebts(d, fx);
+  // + the observed Loan EMI average for loans not planned yet. A loan with EMI ≤ 0 is "EMI unknown": it is left out of
+  // the payoff and the minimums, and the observed average covers it. With no planned loan the whole average is used;
+  // with an unknown loan beside known ones, the average less the known EMIs (never below 0).
+  const all = toPayDebts(d, fx);
+  const unknownEmi = all.some((x) => x.kind === 'loan' && !(x.minPay > 0));
+  const pd = all.filter((x) => !(x.kind === 'loan' && !(x.minPay > 0)));
   const mins = monthlyDebtPayment(pd);
   const extra = pd.length ? Math.max(0, s.extra || 0) : 0;
-  const emiSeen = !pd.some((x) => x.kind === 'loan') && a.emi > 0 ? a.emi : 0;
+  const knownEmi = pd.filter((x) => x.kind === 'loan').reduce((t, x) => t + x.minPay, 0);
+  const emiSeen = a.emi <= 0 ? 0 : !pd.some((x) => x.kind === 'loan') ? a.emi : unknownEmi ? Math.max(0, snap(a.emi - knownEmi)) : 0;
   const debtAmt = mins + extra + emiSeen;
   const freeAfter = (strategyExtra: number) => {
     if (!pd.length) return null;
@@ -307,7 +313,9 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   const debtParts: string[] = [];
   if (pd.length) debtParts.push(`${S(mins)} in minimum payments and EMIs`);
   if (extra > 0) debtParts.push(`${S(extra)} extra you chose`);
-  if (emiSeen > 0) debtParts.push(`${S(emiSeen)} in loan EMIs seen in your statements (add this loan to plan its payoff)`);
+  if (emiSeen > 0) debtParts.push(unknownEmi
+    ? `${S(emiSeen)} in loan EMIs seen in your statements (enter your loan's monthly EMI to plan its payoff)`
+    : `${S(emiSeen)} in loan EMIs seen in your statements (add this loan to plan its payoff)`);
   const unused = !pd.length && (s.extra || 0) > 0 ? ` Your extra ${S(s.extra)}/mo isn't applied because no card or loan is added.` : '';
   const debtExplain = (debtParts.length
     ? `${debtParts.join(' + ')} = ${S(debtAmt)} a month${debtFree ? `, debt-free by ${mlabel(debtFree)}` : ''}.`

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mergeData } from '../backup';
 import { blank, kindOf, migrate } from '../types';
 
 const v1 = () => ({
@@ -39,5 +40,12 @@ describe('migrate', () => {
   it('picks impact defaults by currency', () => {
     expect(migrate({ txns: [], settings: { currency: 'PKR' } }).settings.impact).toEqual({ meal: 200, school: 60000 });
     expect(migrate({ txns: [], settings: { currency: 'USD' } }).settings.impact).toBeNull();
+  });
+  it('migrates goals of a v1 backup when merging', () => {
+    const b = { app: 'bachat', v: 1, at: '', state: { txns: [], goals: [{ id: 'g9', name: 'Car', target: 500000, date: '2027-06', link: false, saved: 100, ret: 7 }] } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = mergeData(blank(), b as any);
+    expect(data.goals[0].price).toBe(500000);
+    expect(data.goals[0].saved).toBe(100);
   });
 });

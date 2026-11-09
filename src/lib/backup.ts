@@ -59,7 +59,7 @@ export function restoreData(b: Backup): Data {
 /** Adds a backup to existing data without duplicating transactions or goals. */
 export function mergeData(cur: Data, b: Backup): { data: Data; added: number } {
   const base: Data = cur.sample ? { ...blank(), settings: cur.settings } : cur;
-  const st = b.state;
+  const st = migrate(b.state);
   const have = new Set(base.txns.map((t) => t.id));
   const txns = base.txns.slice();
   let added = 0;

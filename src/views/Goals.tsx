@@ -39,8 +39,8 @@ function GoalForm() {
           <input id="g-date" type="month" required value={g.date} onChange={(e) => set({ date: e.target.value })} /></div>
       </div>
       <div className="form two">
-        {<div className="field"><label htmlFor="g-saved">Already saved for it (₹)</label>
-          <input id="g-saved" type="number" inputMode="numeric" min={0} value={g.saved || ''} onChange={(e) => set({ saved: +e.target.value })} /></div>}
+        <div className="field"><label htmlFor="g-saved">Already saved for it (₹)</label>
+          <input id="g-saved" type="number" inputMode="numeric" min={0} value={g.saved || ''} onChange={(e) => set({ saved: +e.target.value })} /></div>
         <div className="field"><label htmlFor="g-ret">Expected yearly return %</label>
           <input id="g-ret" type="number" step={0.5} value={g.ret} onChange={(e) => set({ ret: +e.target.value })} /></div>
       </div>

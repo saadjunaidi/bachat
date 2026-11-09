@@ -1,0 +1,101 @@
+import type { Data } from './types';
+
+export interface RateSet { base: string; date: string; r: Record<string, number> } // 1 base = r[CUR] CUR
+export interface Fx { view: string; today: RateSet | null; months: Record<string, RateSet>; overrides: Record<string, number>; fetchedAt: number | null; failed: boolean }
+
+export const FX_TTL_MS = 12 * 3600e3;
+const KEY = 'bachat.rates';
+
+export const EMPTY_FX = (view: string): Fx => ({ view, today: null, months: {}, overrides: {}, fetchedAt: null, failed: false });
+
+export function toView(amt: number, cur: string, fx: Fx, month?: string): number | null {
+  if (cur === fx.view) return amt;
+  const o = fx.overrides[cur];
+  if (o) return amt * o;
+  const set = (month && fx.months[month]) || fx.today;
+  const rate = set?.r[cur] ?? fx.today?.r[cur];
+  return rate ? amt / rate : null;
+}
+
+export function foreignCurrencies(d: Data): string[] {
+  const view = d.settings.currency.toUpperCase();
+  const all = [
+    ...Object.values(d.accounts).map((a) => a.currency),
+    ...d.debts.map((x) => x.currency),
+    ...d.goals.map((x) => x.currency),
+    ...d.gifts.map((x) => x.currency),
+    d.assets.currency
+  ];
+  const out = new Set<string>();
+  for (const c of all) {
+    const u = c?.toUpperCase();
+    if (u && u !== view) out.add(u);
+  }
+  return [...out].sort();
+}
+
+type Cache = Record<string, { today: RateSet | null; fetchedAt: number | null; months: Record<string, RateSet> }>;
+
+function readCache(st: Storage | undefined): Cache {
+  try {
+    const raw = st?.getItem(KEY);
+    return raw ? (JSON.parse(raw) as Cache) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function fetchSet(f: typeof fetch, view: string, when: string): Promise<RateSet | null> {
+  const base = view.toLowerCase();
+  const urls = [
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${when}/v1/currencies/${base}.json`,
+    `https://${when}.currency-api.pages.dev/v1/currencies/${base}.json`
+  ];
+  for (const u of urls) {
+    try {
+      const res = await f(u);
+      if (!res.ok) continue;
+      const j = (await res.json()) as Record<string, unknown>;
+      const raw = j[base] as Record<string, number> | undefined;
+      if (!raw || typeof raw !== 'object') continue;
+      const r: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw)) if (typeof v === 'number' && v > 0) r[k.toUpperCase()] = v;
+      return { base: view, date: String(j.date ?? ''), r };
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+export async function loadFx(
+  view: string,
+  curs: string[],
+  months: string[],
+  opts: { fetch?: typeof fetch; now?: number; storage?: Storage } = {}
+): Promise<Fx> {
+  if (!curs.length) return EMPTY_FX(view);
+  const f = opts.fetch ?? globalThis.fetch?.bind(globalThis);
+  const now = opts.now ?? Date.now();
+  let st: Storage | undefined;
+  try { st = opts.storage ?? globalThis.localStorage; } catch { st = undefined; }
+  const cache = readCache(st);
+  const hit = cache[view] ?? { today: null, fetchedAt: null, months: {} };
+  const entry = { today: hit.today, fetchedAt: hit.fetchedAt, months: { ...hit.months } };
+  let failed = false;
+
+  if (f) {
+    if (!entry.today || entry.fetchedAt == null || now - entry.fetchedAt > FX_TTL_MS) {
+      const s = await fetchSet(f, view, 'latest');
+      if (s) { entry.today = s; entry.fetchedAt = now; } else failed = true;
+    }
+    for (const m of months) {
+      if (entry.months[m]) continue;
+      const s = await fetchSet(f, view, `${m}-01`);
+      if (s) entry.months[m] = s; else failed = true;
+    }
+  } else failed = true;
+
+  try { st?.setItem(KEY, JSON.stringify({ ...cache, [view]: entry })); } catch { /* ignore */ }
+  return { view, today: entry.today, months: entry.months, overrides: {}, fetchedAt: entry.fetchedAt, failed };
+}

@@ -19,7 +19,7 @@ Import bank statements, see where your money goes, and plan savings goals. Insta
 | Tests | Vitest: parsing, categorisation, de-duplication, backup round-trip, savings maths |
 | Serving | nginx in a container (Cloud Run) or Firebase Hosting, with a strict Content-Security-Policy |
 
-Fonts are bundled locally (Fontsource). The app makes **no requests to any other site**.
+Fonts are bundled locally (Fontsource). The only request it ever makes is for exchange rates, and only if you add an account in a second currency. That request contains currency codes and dates, never your data.
 
 ```
 src/

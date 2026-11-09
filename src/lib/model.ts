@@ -66,7 +66,7 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
     a.n++; a.last = t.date; a.list.push(t);
     if (t.bal != null) {
       const b = toView(t.bal, curOf(t.acct), fx);
-      if (b == null) missing.add(curOf(t.acct));
+      if (b == null) { missing.add(curOf(t.acct)); t.bal = null; }
       else { a.bal = b; a.balDate = t.date; t.bal = b; }
     }
   }
@@ -90,7 +90,7 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
   a3.spendExEmi = a3.exp - a3.emi;
   a3.rate = a3.inc > 0 ? a3.saved / a3.inc : NaN;
   const totalBal = banks.reduce((s, n) => s + (acc[n].bal || 0), 0);
-  const hasBal = names.some((n) => acc[n].bal != null);
+  const hasBal = banks.some((n) => acc[n].bal != null);
   const trend = months.map((m) => {
     let s = 0, any = false;
     for (const n of banks) {

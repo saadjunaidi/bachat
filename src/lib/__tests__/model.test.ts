@@ -98,3 +98,31 @@ describe('net worth', () => {
     expect(M.bankBal).toBe(50000);
   });
 });
+
+describe('model fx edge cases', () => {
+  it('ignores balances with no today rate', () => {
+    const d = data();
+    d.accounts = { PK: { name: 'PK', currency: 'PKR' }, US: { name: 'US', currency: 'USD' } };
+    d.txns = [tx('PK', '2026-10-02', 'SALARY', 1000, 5000), tx('US', '2026-10-05', 'AMAZON', -100, 1000)];
+    const fx: Fx = { ...EMPTY_FX('PKR'), months: { '2026-10': { base: 'PKR', date: 'x', r: { USD: 0.0036 } } } };
+    const M = build(d, fx);
+    expect(M.bankBal).toBe(5000);
+    expect(M.trend[0]).toBe(5000);
+    expect(M.fxMissing).toContain('USD');
+  });
+  it('hasBal ignores non-bank accounts', () => {
+    const d = data();
+    d.accounts = { Card: { name: 'Card', kind: 'card' } };
+    d.txns = [tx('Card', '2026-10-02', 'AMAZON', -100, -100)];
+    expect(build(d).hasBal).toBe(false);
+  });
+  it('converts foreign debts and excludes unrated ones', () => {
+    const d = data();
+    d.debts = [{ id: 'd', name: 'x', kind: 'loan', currency: 'USD', balance: 100, asOf: '2026-10-01', apr: 0, minPay: 0, revolving: false }];
+    const fx = fxOf('PKR', {}, { USD: 0.0035 });
+    expect(build(d, fx).debtTotal).toBeCloseTo(28571.43, 1);
+    const M = build(d);
+    expect(M.debtTotal).toBe(0);
+    expect(M.fxMissing).toEqual(['USD']);
+  });
+});

@@ -64,11 +64,22 @@ select,input[type=text],input[type=number],input[type=month],input[type=search],
 textarea{width:100%;min-height:110px;font-family:var(--mono);font-size:.8rem}
 
 /* Bottom nav (phones) */
-.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 .bn{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;color:var(--muted);font-size:.72rem;font-weight:600;cursor:pointer;border-radius:10px}
 .bn svg{width:22px;height:22px}
 .bn[aria-current="page"]{color:var(--accent)}
 main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
+@media (max-width:419.98px){.bn{font-size:10px}.bn svg{width:22px;height:22px}}
+.gear{margin-left:auto;border:0;background:transparent;color:var(--muted);width:40px;height:40px;border-radius:10px;display:grid;place-items:center;cursor:pointer;flex:none}
+.gear:hover{color:var(--fg);background:var(--surface-2)}
+.gear svg{width:22px;height:22px}
+.monthpick+.gear{margin-left:0}
+.explain{margin-top:10px;font-size:.86rem;color:var(--muted)}
+.explain summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.explain-b{margin-top:8px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--fg);display:flex;flex-direction:column;gap:6px}
+.fxnote{display:block}
+.fxrow{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.fxrow input{width:130px}
 @media (min-width:880px){
   .tabs{display:flex}.bottomnav{display:none}
   main{padding-block:24px 48px}

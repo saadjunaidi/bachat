@@ -1,19 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Data } from './lib/types';
 import { build, defaultMonth, type Model } from './lib/model';
+import { EMPTY_FX, foreignCurrencies, loadFx, type Fx } from './lib/fx';
+import { plan, type Plan } from './lib/plan';
+import { setCurrency, thisMonth } from './lib/format';
 import { loadData, saveData } from './lib/storage';
 import { sampleData } from './lib/sample';
 
-export type View = 'overview' | 'spending' | 'goals' | 'statements';
-export const VIEWS: View[] = ['overview', 'spending', 'goals', 'statements'];
+export type View = 'overview' | 'spending' | 'goals' | 'debts' | 'giving' | 'statements';
+export const VIEWS: View[] = ['overview', 'spending', 'goals', 'debts', 'giving', 'statements'];
 export type Filter = 'all' | 'out' | 'in' | 'unk';
 
-export interface UI { month: string | null; cat: string | null; flt: Filter; q: string; lim: number; editGoal: string | null; tx: string | null }
+export interface UI { month: string | null; cat: string | null; flt: Filter; q: string; lim: number; editGoal: string | null; tx: string | null; settingsOpen: boolean }
 
 interface Store {
   data: Data;
   setData: (f: (d: Data) => Data) => void;
   M: Model;
+  fx: Fx;
+  P: Plan;
   month: string | null;
   ui: UI;
   setUi: (p: Partial<UI>) => void;
@@ -32,7 +37,7 @@ const readView = (): View => {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setDataRaw] = useState<Data>(() => loadData() ?? sampleData());
-  const [ui, setUiRaw] = useState<UI>({ month: null, cat: null, flt: 'all', q: '', lim: 60, editGoal: null, tx: null });
+  const [ui, setUiRaw] = useState<UI>({ month: null, cat: null, flt: 'all', q: '', lim: 60, editGoal: null, tx: null, settingsOpen: false });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const d = loadData();
@@ -77,10 +82,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } else location.hash = v;
   }, []);
 
-  const M = useMemo(() => build(data), [data]);
+  const cur = data.settings.currency;
+  const [fxRaw, setFxRaw] = useState<Fx>(() => EMPTY_FX(cur));
+  const curs = useMemo(() => foreignCurrencies(data), [data]);
+  const months = useMemo(() => {
+    const view = cur.toUpperCase();
+    const set = new Set<string>();
+    for (const t of data.txns) {
+      const c = data.accounts[t.acct]?.currency?.toUpperCase();
+      if (c && c !== view) set.add(t.date.slice(0, 7));
+    }
+    return [...set].sort();
+  }, [data.txns, data.accounts, cur]);
+  const key = curs.join(',') + '|' + months.join(',');
+
+  useEffect(() => {
+    let stale = false;
+    loadFx(cur, curs, months).then((f) => { if (!stale) setFxRaw(f); }).catch(() => { /* offline: keep current rates */ });
+    return () => { stale = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, key]);
+
+  const fx = useMemo<Fx>(
+    () => ({ ...(fxRaw.view === cur ? fxRaw : EMPTY_FX(cur)), overrides: data.settings.fxOverrides || {} }),
+    [fxRaw, cur, data.settings.fxOverrides]
+  );
+  const M = useMemo(() => { setCurrency(cur); return build(data, fx); }, [data, fx, cur]);
+  const P = useMemo(() => plan(data, M, fx, thisMonth()), [data, M, fx]);
   const month = defaultMonth(M, ui.month);
 
-  const value = useMemo(() => ({ data, setData, M, month, ui, setUi, toast, toastMsg, view, go }), [data, setData, M, month, ui, setUi, toast, toastMsg, view, go]);
+  const value = useMemo(() => ({ data, setData, M, fx, P, month, ui, setUi, toast, toastMsg, view, go }), [data, setData, M, fx, P, month, ui, setUi, toast, toastMsg, view, go]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

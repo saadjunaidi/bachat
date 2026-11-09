@@ -16,14 +16,16 @@ export function minPayment(d: PayDebt, bal: number): number {
 export function payoff(debts: PayDebt[], strategy: 'avalanche' | 'snowball', extra: number, maxMonths = 600): PayoffResult {
   const bal = new Map<string, number>(debts.map((d) => [d.id, Math.max(0, d.balance)]));
   const done = new Set<string>();
-  const freed = new Map<string, number>(); // minimum released by each cleared debt
+  // Budgeted payment: fixed at plan start (uncapped minimum at the initial balance). Whatever a debt does not need
+  // in a month (capped/declining minimum), and its full budget once cleared (from the month after), joins the pool.
+  const budget = new Map<string, number>(debts.map((d) => [d.id, d.kind === 'card' ? Math.max(d.minPay, (Math.max(0, d.balance) * (d.minPct ?? CARD_MIN_PCT_DEFAULT)) / 100) : d.minPay]));
   const order: { id: string; month: number }[] = [];
   const payments: number[] = [];
   const never: string[] = [];
   let interest = 0;
 
   for (const d of debts) {
-    if ((bal.get(d.id) ?? 0) <= EPS) { done.add(d.id); freed.set(d.id, 0); continue; }
+    if ((bal.get(d.id) ?? 0) <= EPS) { done.add(d.id); continue; }
     const b = bal.get(d.id)!;
     if (extra <= 0 && minPayment(d, b) <= (b * d.apr) / 1200) never.push(d.id);
   }
@@ -37,7 +39,7 @@ export function payoff(debts: PayDebt[], strategy: 'avalanche' | 'snowball', ext
   while (done.size < debts.length && month < maxMonths) {
     let paid = 0;
     let pool = Math.max(0, extra);
-    for (const v of freed.values()) pool += v;
+    for (const d of debts) if (done.has(d.id)) pool += budget.get(d.id)!;
     const live = debts.filter((d) => !done.has(d.id));
     for (const d of live) {
       const b = bal.get(d.id)!;
@@ -46,12 +48,12 @@ export function payoff(debts: PayDebt[], strategy: 'avalanche' | 'snowball', ext
       const min = minPayment(d, b);
       const nb = b + i - min;
       paid += min;
+      pool += Math.max(0, budget.get(d.id)! - min);
       bal.set(d.id, nb);
       if (nb <= EPS) {
         bal.set(d.id, 0);
         done.add(d.id);
         order.push({ id: d.id, month: month + 1 });
-        freed.set(d.id, min);
       }
     }
     for (const d of [...live.filter((x) => !done.has(x.id))].sort(rank)) {
@@ -66,7 +68,6 @@ export function payoff(debts: PayDebt[], strategy: 'avalanche' | 'snowball', ext
         bal.set(d.id, 0);
         done.add(d.id);
         order.push({ id: d.id, month: month + 1 });
-        freed.set(d.id, minPayment(d, b));
       }
     }
     payments.push(paid);
@@ -80,7 +81,9 @@ export function compare(debts: PayDebt[], strategy: 'avalanche' | 'snowball', ex
   const base = payoff(debts, strategy, 0);
   const chosen = payoff(debts, strategy, extra);
   const monthsSaved = Number.isFinite(chosen.months) ? base.months - chosen.months : 0;
-  return { base, chosen, interestSaved: base.interest - chosen.interest, monthsSaved };
+  // interestSaved is NaN when base never clears (UI shows "never at minimums").
+  const interestSaved = Number.isFinite(base.months) ? base.interest - chosen.interest : NaN;
+  return { base, chosen, interestSaved, monthsSaved };
 }
 
 export function monthlyDebtPayment(debts: PayDebt[]): number {

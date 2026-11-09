@@ -35,6 +35,18 @@ describe('debt payoff', () => {
     expect(r.months).toBe(Infinity);
     expect(r.never).toContain('z');
   });
+  it('rolls budgeted payments of cleared debts into the pool', () => {
+    const a: PayDebt = { id: 'a', name: 'A', kind: 'loan', balance: 1000, apr: 0, minPay: 100 };
+    const b: PayDebt = { id: 'b', name: 'B', kind: 'loan', balance: 3000, apr: 0, minPay: 100 };
+    const r = payoff([a, b], 'avalanche', 0);
+    expect(r.order).toEqual([{ id: 'a', month: 10 }, { id: 'b', month: 20 }]);
+    expect(r.months).toBe(20);
+    expect(r.payments.every((p) => Math.abs(p - 200) < 1e-9)).toBe(true);
+    expect(r.payments.reduce((s, x) => s + x, 0)).toBeCloseTo(4000);
+    const e = payoff([a, b], 'avalanche', 50);
+    expect(e.payments[0]).toBeCloseTo(250);
+    expect(e.payments.reduce((s, x) => s + x, 0)).toBeCloseTo(4000);
+  });
   it('minPayment', () => {
     const c: PayDebt = { id: 'c', name: 'C', kind: 'card', balance: 0, apr: 30, minPay: 200, minPct: 5 };
     expect(minPayment(c, 1000)).toBe(200);

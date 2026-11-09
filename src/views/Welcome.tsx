@@ -116,6 +116,40 @@ export function Welcome() {
         </ol>
       </section>
 
+      <section className="w-sec w-devices">
+        <h2>Use it on your phone and your laptop</h2>
+        <p className="w-intro">There’s no account and no cloud copy. Your data lives in the browser on each device, so you move it yourself with a backup. It takes about a minute.</p>
+        <ol className="w-steps">
+          <li>
+            <span className="w-num" aria-hidden="true">1</span>
+            <div>
+              <h3>Make a backup where your data is</h3>
+              <p>Go to Statements, then “Back up or move to another device”. Choose “Download backup file”, “Share backup…” to send it to yourself on WhatsApp, email or Drive, or “Copy backup code”.</p>
+              <button className="linkbtn" onClick={() => go('statements', 'bk')}>Open backup</button>
+            </div>
+          </li>
+          <li>
+            <span className="w-num" aria-hidden="true">2</span>
+            <div>
+              <h3>Open the app on the other device</h3>
+              <p>Go to moneyinmypocket.web.app, open Statements, then “Choose backup file” or paste the backup code.</p>
+            </div>
+          </li>
+          <li>
+            <span className="w-num" aria-hidden="true">3</span>
+            <div>
+              <h3>Replace or combine</h3>
+              <p>“Restore this backup” replaces what’s on that device. “Add to data on this device” combines the two and skips anything already there, so nothing is counted twice.</p>
+            </div>
+          </li>
+        </ol>
+        <ul className="w-tips">
+          <li><b>Install it like an app.</b> In Chrome or Edge, use the install button in the address bar or on the Statements page. On iPhone, tap Share, then “Add to Home Screen”. It works offline once installed.</li>
+          <li><b>Keep one main device.</b> Import new statements there, then send a fresh backup to your other devices. The app reminds you when your last backup is more than 30 days old.</li>
+          <li><b>Keep backups private.</b> Anyone with your backup file or code can read your transactions.</li>
+        </ul>
+      </section>
+
       <section className="w-sec w-free">
         <div>
           <h2>What financial freedom means</h2>

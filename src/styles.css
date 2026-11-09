@@ -295,3 +295,10 @@ details summary{list-style-position:inside}
 
 .w-trust{border-top:1px solid var(--line);padding-top:24px;max-width:46rem}
 .w-trust p{line-height:1.6;margin:0 0 10px}
+.w-intro{max-width:40rem;line-height:1.6;color:var(--muted);margin:-6px 0 18px}
+.w-devices .w-steps{grid-template-columns:1fr}
+@media (min-width:900px){.w-devices .w-steps{grid-template-columns:repeat(3,1fr);gap:12px 28px}}
+.w-tips{list-style:none;margin:18px 0 0;padding:16px 18px;display:grid;gap:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+@media (min-width:900px){.w-tips{grid-template-columns:repeat(3,1fr);gap:24px}}
+.w-tips li{line-height:1.55;color:var(--muted);font-size:.94rem}
+.w-tips b{display:block;color:var(--fg);margin-bottom:2px}

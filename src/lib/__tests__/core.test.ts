@@ -114,7 +114,7 @@ describe('backup', () => {
     const d = blank();
     for (let i = 0; i < 700; i++) d.txns.push({ id: 'A|' + i, acct: 'A', date: '2026-10-01', desc: 'UPI/SWIGGY ₹ test ' + i, amt: -i, bal: 1e5 - i, seq: i });
     d.accounts = { A: { name: 'A' } };
-    d.goals = [{ id: 'g1', name: '₹50 lakh', target: 5e6, date: '2027-06', link: true, saved: 0, ret: 7 }];
+    d.goals = [{ id: 'g1', name: '₹50 lakh', price: 5e6, currency: 'INR', date: '2027-06', saved: 0, ret: 7, stretchChoice: 'wait' }];
     return d;
   };
   it('round-trips through a compressed code, even with line breaks', async () => {

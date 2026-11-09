@@ -1,4 +1,4 @@
-import { blank, DEFAULT_SETTINGS, type Data } from './types';
+import { migrate, type Data } from './types';
 
 const KEY = 'bachat.v1';
 
@@ -8,7 +8,7 @@ export function loadData(): Data | null {
     if (!s) return null;
     const d = JSON.parse(s);
     if (!d || !Array.isArray(d.txns)) return null;
-    return { ...blank(), ...d, settings: { ...DEFAULT_SETTINGS, ...(d.settings || {}) } };
+    return migrate(d);
   } catch {
     return null;
   }

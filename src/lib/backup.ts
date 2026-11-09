@@ -1,4 +1,4 @@
-import { blank, DEFAULT_SETTINGS, type Data } from './types';
+import { blank, migrate, type Data } from './types';
 import { iso } from './format';
 
 export interface Backup { app: 'bachat'; v: number; at: string; state: Omit<Data, 'sample' | 'lastBackup'> }
@@ -17,7 +17,7 @@ function unb64(s: string) {
 
 /** Text backup: "BACHAT1:" + base64(gzip(json)). Falls back to uncompressed "BACHAT0:" on old browsers. */
 export async function makeBackup(d: Data): Promise<string> {
-  const payload: Backup = { app: 'bachat', v: 1, at: new Date().toISOString(), state: { accounts: d.accounts, txns: d.txns, rules: d.rules, overrides: d.overrides, goals: d.goals, mappings: d.mappings, settings: d.settings } };
+  const payload: Backup = { app: 'bachat', v: 1, at: new Date().toISOString(), state: { accounts: d.accounts, txns: d.txns, rules: d.rules, overrides: d.overrides, goals: d.goals, debts: d.debts, gifts: d.gifts, assets: d.assets, mappings: d.mappings, settings: d.settings } };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   if (typeof CompressionStream !== 'undefined') {
     const st = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
@@ -53,7 +53,7 @@ export async function readBackup(text: string): Promise<Backup> {
 
 export function restoreData(b: Backup): Data {
   const st = b.state;
-  return { ...blank(), ...st, settings: { ...DEFAULT_SETTINGS, ...(st.settings || {}) }, sample: false, lastBackup: b.at };
+  return { ...migrate(st), sample: false, lastBackup: b.at };
 }
 
 /** Adds a backup to existing data without duplicating transactions or goals. */

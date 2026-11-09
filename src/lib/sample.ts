@@ -49,8 +49,8 @@ export function sampleData(): Data {
   s.accounts = { 'HDFC Savings': { name: 'HDFC Savings' }, 'Kotak Savings': { name: 'Kotak Savings' } };
   const y = now.getFullYear();
   s.goals = [
-    { id: 'g1', name: '₹50 lakh savings', target: 5000000, date: `${y + 1}-06`, link: true, saved: 0, ret: 7 },
-    { id: 'g2', name: 'Car down payment', target: 400000, date: `${y + 1}-12`, link: false, saved: 60000, ret: 7 }
+    { id: 'g1', name: '₹50 lakh savings', price: 5000000, currency: 'INR', date: `${y + 1}-06`, saved: 0, ret: 7, stretchChoice: 'wait' },
+    { id: 'g2', name: 'Car down payment', price: 400000, currency: 'INR', date: `${y + 1}-12`, saved: 60000, ret: 7, stretchChoice: 'wait' }
   ];
   return s;
 }

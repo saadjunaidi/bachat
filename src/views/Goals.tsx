@@ -147,14 +147,14 @@ function GoalCard({ g, r }: { g: ShortGoal; r: GoalResult | undefined }) {
           {v && <span className="pill" style={{ background: v.soft, color: v.color }}>{v.label}</span>}
         </div>
         <div>
-          <span className="big">{short(g.price, cur)}</span>
+          <span className="big">{short(g.price, cur)}</span>{cur !== getCurrency() && <span className="small muted"> ({cur})</span>}
           {r && Math.abs(r.priceAdj - (g.price * 1)) > 0.5 && cur === getCurrency() && <span className="muted"> · {short(r.priceAdj)} with inflation by {mlabel(g.date)}</span>}
           {r && cur !== getCurrency() && <span className="muted"> · about {short(r.priceAdj)} with inflation by {mlabel(g.date)}</span>}
         </div>
         <div className="prog" role="progressbar" aria-valuenow={Math.round(p * 100)} aria-valuemin={0} aria-valuemax={100}>
           <i style={{ width: p * 100 + '%', background: v ? v.color : 'var(--muted)' }} />
         </div>
-        <p className="small muted">{short(g.saved || 0, cur)} saved of {short(g.price, cur)}</p>
+        <p className="small muted">{short(g.saved || 0, cur)} saved of {short(g.price, cur)}{cur !== getCurrency() ? ` (${cur})` : ''}</p>
         {P.ready && !r && <p className="small muted">No exchange rate for {cur} yet</p>}
         {r && P.ready && <p>{r.reason}</p>}
         {r && P.ready && r.verdict === 'stretch' && (

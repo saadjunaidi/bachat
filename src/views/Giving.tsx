@@ -3,7 +3,7 @@ import { CURRENCIES, dlong, getCurrency, iso, money, pct, short, sym } from '../
 import { GOLD_NISAB_G, SILVER_NISAB_G, ZAKAT_RATE, givingSummary, nextZakatDate, zakatFor } from '../lib/giving';
 import type { Gift } from '../lib/types';
 import { useStore } from '../store';
-import { Explain, Kpi, Panel } from '../components/ui';
+import { ConfirmButton, Explain, FxNote, Kpi, Panel } from '../components/ui';
 
 /** Positions in zakatFor().lines: 0 = cash (from statements), 1-6 = asset-backed (edited under 'Other things you own'), 7 = debts due. */
 const CASH_LINE = 0;
@@ -210,7 +210,7 @@ export function Giving() {
           <div className="rows" style={{ marginTop: 12 }}>
             {shown.length === 0 && <p className="small muted">No gifts logged for {year}.</p>}
             {shown.map((e, i) => (
-              <div className="row" key={e.date + i} style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+              <div className="row" key={(e.id ?? e.date) + i} style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
                 <div style={{ minWidth: 0 }}>
                   <div className="t">{e.cause || kindLabel(e.kind, islamic)}</div>
                   <div className="m">
@@ -219,7 +219,12 @@ export function Giving() {
                     {e.fromStatement && <span className="pill info">from your statements</span>}
                   </div>
                 </div>
-                <div className="a" title={short(e.amount)}>{money(e.amount)}</div>
+                <div className="a" title={short(e.amount)}>{money(e.amount)}{e.orig && <><br /><FxNote orig={e.orig} /></>}</div>
+                {!e.fromStatement && e.id && (
+                  <div className="m" style={{ gridColumn: '1 / -1' }}>
+                    <ConfirmButton confirmText="Tap again to remove" onConfirm={() => { const id = e.id; setData((d) => ({ ...d, gifts: d.gifts.filter((x) => x.id !== id) })); toast('Gift removed'); }}>Remove</ConfirmButton>
+                  </div>
+                )}
               </div>
             ))}
           </div>

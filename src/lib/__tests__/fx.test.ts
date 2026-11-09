@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FX, FX_TTL_MS, convertSettings, foreignCurrencies, loadFx, toView } from '../fx';
+import { EMPTY_FX, FX_TTL_MS, convertSettings, foreignCurrencies, loadFx, ratesNote, toView } from '../fx';
 import { defaultSettings, type Data } from '../types';
 
 const body = { date: '2026-11-09', pkr: { usd: 0.0036, aed: 0.0132 } };
@@ -126,5 +126,16 @@ describe('convertSettings', () => {
   it('with no rate and nothing to lose: no reset message', () => {
     const blankS = defaultSettings('USD'); // impact null for USD, all amounts 0
     expect(convertSettings(blankS, 'USD', 'EUR', EMPTY_FX('USD')).reset).toBe(false);
+  });
+});
+
+describe('ratesNote', () => {
+  it('lists today\'s rate per foreign currency, 4 significant figures', () => {
+    // 1 INR = 0.012 USD → 1 USD = 83.333… → "83.33"; 1 INR = 0.044 AED → 1 AED = 22.7272… → "22.73".
+    const fx = { ...EMPTY_FX('INR'), today: { base: 'INR', date: '2026-11-09', r: { USD: 0.012, AED: 0.044 } } };
+    expect(ratesNote(['usd', 'AED', 'INR', 'USD'], fx)).toBe('1 AED = ₹22.73, 1 USD = ₹83.33');
+    // No rate for EUR: left out. No foreign currency: ''.
+    expect(ratesNote(['EUR'], fx)).toBe('');
+    expect(ratesNote([], fx)).toBe('');
   });
 });

@@ -1,4 +1,5 @@
 import type { Data, Settings } from './types';
+import { sym } from './format';
 
 export interface RateSet { base: string; date: string; r: Record<string, number> } // 1 base = r[CUR] CUR
 export interface Fx { view: string; today: RateSet | null; months: Record<string, RateSet>; overrides: Record<string, number>; fetchedAt: number | null; failed: boolean }
@@ -54,6 +55,17 @@ export function foreignCurrencies(d: Data): string[] {
     if (u && u !== view) out.add(u);
   }
   return [...out].sort();
+}
+
+/** "1 USD = ₹83.33, 1 AED = ₹22.69": today's rate (or manual rate) for each currency other than the view; '' if none. */
+export function ratesNote(curs: string[], fx: Fx): string {
+  const out: string[] = [];
+  for (const c of [...new Set(curs.map((x) => x.toUpperCase()))].sort()) {
+    if (c === fx.view.toUpperCase()) continue;
+    const v = toView(1, c, fx);
+    if (v) out.push(`1 ${c} = ${sym(fx.view)}${Number(v.toPrecision(4))}`);
+  }
+  return out.join(', ');
 }
 
 type Cache = Record<string, { today: RateSet | null; fetchedAt: number | null; months: Record<string, RateSet> }>;

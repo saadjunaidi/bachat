@@ -51,6 +51,15 @@ export const short = (n: number, cur: string = view) => {
   return s + Math.round(a);
 };
 
+/** A "nice" slider step: about max ÷ 100, rounded to 1, 2 or 5 × 10^k, never below 1. */
+export const niceStep = (max: number): number => {
+  const raw = max / 100;
+  if (!(raw > 1)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+};
+
 export const pct = (n: number) => (isFinite(n) ? (n * 100).toFixed(Math.abs(n) < 0.1 ? 1 : 0) : '–') + '%';
 
 export const MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

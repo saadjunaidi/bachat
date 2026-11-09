@@ -2,7 +2,7 @@ import { CCOL, CTYPE, isNeed } from '../lib/categories';
 import { dlabel, mlabel, money, pct } from '../lib/format';
 import { priorAvg, type ATxn } from '../lib/model';
 import { useStore, type Filter } from '../store';
-import { Chip, Dot, EmptyState, Panel } from '../components/ui';
+import { Chip, Dot, EmptyState, FxNote, Panel } from '../components/ui';
 
 const FILTERS: [Filter, string][] = [['all', 'All'], ['out', 'Money out'], ['in', 'Money in'], ['unk', 'Needs a category']];
 
@@ -11,7 +11,7 @@ function TxRow({ t, onOpen }: { t: ATxn; onOpen: () => void }) {
     <button className="row" onClick={onOpen}>
       <span style={{ minWidth: 0 }}>
         <span className="t" style={{ display: 'block' }}>{t.payee}</span>
-        <span className="m"><span>{dlabel(t.date)}</span><Chip cat={t.cat} /><span className="ellipsis">{t.acct}</span></span>
+        <span className="m"><span>{dlabel(t.date)}</span><Chip cat={t.cat} /><span className="ellipsis">{t.acct}</span><FxNote orig={t.orig} /></span>
       </span>
       <span className={'a ' + (t.amt > 0 ? 'in' : '')}>{t.amt > 0 ? '+' : '−'}{money(Math.abs(t.amt))}</span>
     </button>

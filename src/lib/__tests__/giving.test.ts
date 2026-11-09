@@ -97,6 +97,19 @@ describe('givingSummary', () => {
     expect(g.schoolYears).toBe(1.7);
     expect(g.pctIncome).toBeCloseTo(42500 / 1200000, 9);
   });
+  it('entries carry the gift id (for removing) and the original amount when foreign', () => {
+    // View INR; 1 INR = 0.012 USD → $50 = 50 / 0.012 = ₹4,166.67.
+    const fx = { ...FX, today: { base: 'INR', date: '2026-11-09', r: { USD: 0.012 } } };
+    const d2 = blank();
+    d2.gifts = [{ id: 'u', date: '2026-04-01', amount: 50, currency: 'USD', kind: 'charity' }, { id: 'i', date: '2026-04-02', amount: 100, currency: 'INR', kind: 'charity' }];
+    const g = givingSummary(d2, model({ A: [], a3: { inc: 0 } as Model['a3'] }), fx, '2026');
+    const u = g.entries.find((e) => e.id === 'u')!;
+    expect(u.amount).toBeCloseTo(4166.67, 2);
+    expect(u.orig).toEqual({ amt: 50, cur: 'USD' });
+    expect(g.entries.find((e) => e.id === 'i')!.orig).toBeNull();
+    // Statement donations have no gift id (they can't be removed here).
+    expect(givingSummary(d, M, FX, '2026').entries.find((e) => e.fromStatement)!.id).toBeNull();
+  });
   it('null impact gives null', () => {
     d.settings.impact = null;
     const g = givingSummary(d, M, FX, '2026');

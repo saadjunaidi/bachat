@@ -45,8 +45,15 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
   const { data, setData, toast, setUi, go: nav } = useStore();
   const [map, setMap] = useState<ColumnMap>(p.map);
   const [acct, setAcct] = useState(p.acct);
-  const [kind, setKind] = useState<AcctKind>(p.kind ?? 'bank');
-  const [cur, setCur] = useState(p.currency ?? data.settings.currency ?? getCurrency());
+  const known = data.sample ? undefined : data.accounts[p.acct];
+  const [kind, setKind] = useState<AcctKind>(known ? kindOf(known) : p.kind ?? 'bank');
+  const [cur, setCur] = useState(known?.currency ?? p.currency ?? data.settings.currency ?? getCurrency());
+  // Typing (or picking) an existing account's name presets its kind and currency, so a re-import doesn't reset them.
+  const changeAcct = (name: string) => {
+    setAcct(name);
+    const a = data.sample ? undefined : data.accounts[name.trim()];
+    if (a) { setKind(kindOf(a)); setCur(a.currency || data.settings.currency); }
+  };
   const ex = useMemo(() => extract(p, map), [p, map]);
   const prev = ex.rows.slice(-6).reverse();
   const accts = data.sample ? [] : Object.keys(data.accounts);
@@ -73,7 +80,7 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
       <div className="panel-h"><h2>Check the columns</h2><button className="linkbtn small" onClick={onCancel}>Start over</button></div>
       {p.known && <p className="pill good" style={{ alignSelf: 'start' }}>Same layout as your {p.known} import</p>}
       <div className="field"><label htmlFor="m-acct">Which account is this?</label>
-        <input id="m-acct" type="text" list="acctlist" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder="e.g. HDFC Savings" />
+        <input id="m-acct" type="text" list="acctlist" value={acct} onChange={(e) => changeAcct(e.target.value)} placeholder="e.g. HDFC Savings" />
         <datalist id="acctlist">{accts.map((a) => <option key={a} value={a} />)}</datalist></div>
       <div className="field"><span className="label" id="m-kind-l">What is this statement?</span>
         <div className="seg" role="group" aria-labelledby="m-kind-l">
@@ -145,7 +152,7 @@ function OwnPanel() {
   const cur = CURRENCIES.includes(a.currency) ? CURRENCIES : [a.currency, ...CURRENCIES];
   return (
     <Panel className="span3" id="own" title="Other things you own">
-      <p className="small muted">Used for your net worth, long-term goal and zakat.</p>
+      <p className="small muted">Used for your net worth{st.islamic ? ', long-term goal and zakat' : ' and long-term goal'}.</p>
       <div className="form two">
         <NumField id="o-gold" label="Gold (grams)" value={a.goldG} onSave={(n) => set({ goldG: n })} />
         <NumField id="o-silver" label="Silver (grams)" value={a.silverG} onSave={(n) => set({ silverG: n })} />

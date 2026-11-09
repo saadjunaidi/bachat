@@ -63,16 +63,17 @@ export function zakatFor(d: Data, M: Model, fx: Fx): ZakatResult {
   });
 }
 
-export interface GivingSummary { year: number; allTime: number; pctIncome: number; meals: number | null; schoolYears: number | null; entries: { date: string; amount: number; kind: string; cause?: string; fromStatement: boolean }[] }
+export interface GivingSummary { year: number; allTime: number; pctIncome: number; meals: number | null; schoolYears: number | null; entries: { id: string | null; date: string; amount: number; orig: { amt: number; cur: string } | null; kind: string; cause?: string; fromStatement: boolean }[] }
 
 export function givingSummary(d: Data, M: Model, fx: Fx, year: string): GivingSummary {
   const entries: GivingSummary['entries'] = [];
   for (const g of d.gifts) {
     const amount = toView(g.amount, g.currency || fx.view, fx, g.date.slice(0, 7));
     if (amount === null) continue;
-    entries.push({ date: g.date, amount, kind: g.kind, cause: g.cause, fromStatement: false });
+    const cur = g.currency || fx.view;
+    entries.push({ id: g.id, date: g.date, amount, orig: cur === fx.view ? null : { amt: g.amount, cur }, kind: g.kind, cause: g.cause, fromStatement: false });
   }
-  for (const t of M.A) if (t.cat === 'Donations') entries.push({ date: t.date, amount: -t.amt, kind: 'charity', fromStatement: true });
+  for (const t of M.A) if (t.cat === 'Donations') entries.push({ id: null, date: t.date, amount: -t.amt, orig: t.orig ? { amt: -t.orig.amt, cur: t.orig.cur } : null, kind: 'charity', fromStatement: true });
   entries.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   const yearTotal = entries.filter((e) => e.date.startsWith(year)).reduce((t, e) => t + e.amount, 0);
   const allTime = entries.reduce((t, e) => t + e.amount, 0);

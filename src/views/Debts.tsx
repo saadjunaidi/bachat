@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { addM, CURRENCIES, dlong, getCurrency, mdiff, mlabel, money, sym, thisMonth } from '../lib/format';
+import { addM, CURRENCIES, dlong, getCurrency, mdiff, mlabel, money, niceStep, sym, thisMonth } from '../lib/format';
 import { CARD_MIN_PCT_DEFAULT, compare, toPayDebts } from '../lib/debt';
-import { toView } from '../lib/fx';
+import { ratesNote, toView } from '../lib/fx';
 import type { Debt } from '../lib/types';
 import { useStore } from '../store';
-import { ConfirmButton, Explain, Kpi, Panel } from '../components/ui';
+import { ConfirmButton, Explain, FxNote, Kpi, Panel } from '../components/ui';
 
-const fresh = (): Debt => ({ id: '', name: '', kind: 'card', currency: getCurrency(), balance: 0, asOf: '', apr: 0, minPay: 0, minPct: CARD_MIN_PCT_DEFAULT, revolving: true });
+const fresh = (): Debt => ({ id: '', name: '', kind: 'card', currency: getCurrency(), balance: 0, asOf: '', apr: 0, minPay: 0, minPct: CARD_MIN_PCT_DEFAULT, revolving: false });
 const FORM_ID = 'debtform';
 const scrollToForm = () => setTimeout(() => document.getElementById(FORM_ID)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30);
 
@@ -20,6 +20,8 @@ function DebtForm({ editing, onDone }: { editing: Debt | null; onDone: () => voi
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!d.name.trim() || !(d.balance >= 0)) return;
+    // A loan needs its EMI: without one it can't be planned (the plan would fall back to the EMIs in your statements).
+    if (d.kind === 'loan' && !(d.minPay > 0)) { toast('Enter the monthly EMI for this loan'); return; }
     const debt: Debt = { ...d, name: d.name.trim(), id: d.id || 'd' + Date.now(), asOf: d.asOf || new Date().toISOString().slice(0, 10) };
     if (debt.kind === 'loan') { debt.revolving = true; delete debt.minPct; }
     setData((x) => {
@@ -39,7 +41,7 @@ function DebtForm({ editing, onDone }: { editing: Debt | null; onDone: () => voi
         <div className="field"><label htmlFor="d-name">Name</label>
           <input id="d-name" type="text" required placeholder="e.g. HDFC card, car loan" value={d.name} onChange={(e) => set({ name: e.target.value })} /></div>
         <div className="field"><label htmlFor="d-kind">Kind</label>
-          <select id="d-kind" value={d.kind} onChange={(e) => { const kind = e.target.value as Debt['kind']; set({ kind, revolving: true, minPct: kind === 'card' ? d.minPct ?? CARD_MIN_PCT_DEFAULT : undefined }); }}>
+          <select id="d-kind" value={d.kind} onChange={(e) => { const kind = e.target.value as Debt['kind']; set({ kind, revolving: kind === 'card' ? (d.kind === 'card' ? d.revolving : false) : true, minPct: kind === 'card' ? d.minPct ?? CARD_MIN_PCT_DEFAULT : undefined }); }}>
             <option value="card">Credit card</option><option value="loan">Loan</option>
           </select></div>
       </div>
@@ -55,7 +57,7 @@ function DebtForm({ editing, onDone }: { editing: Debt | null; onDone: () => voi
         <div className="field"><label htmlFor="d-apr">Yearly interest (APR) %</label>
           <input id="d-apr" type="number" inputMode="decimal" step="any" min={0} value={d.apr || ''} onChange={(e) => set({ apr: +e.target.value })} /></div>
         <div className="field"><label htmlFor="d-min">{isCard ? 'Minimum payment' : 'Monthly EMI'} ({sym(d.currency)})</label>
-          <input id="d-min" type="number" inputMode="decimal" step="any" min={0} value={d.minPay || ''} onChange={(e) => set({ minPay: +e.target.value })} /></div>
+          <input id="d-min" type="number" inputMode="decimal" step="any" min={isCard ? 0 : 0.01} required={!isCard} value={d.minPay || ''} onChange={(e) => set({ minPay: +e.target.value })} /></div>
       </div>
       {isCard && (
         <>
@@ -129,11 +131,14 @@ export function Debts() {
     return { x, bal, int: bal === null ? null : (bal * x.apr) / 1200, cleared: x.kind === 'card' && !x.revolving };
   });
 
+  const rates = ratesNote(data.debts.map((x) => x.currency), fx);
+  const step = niceStep(sliderMax);
+
   return (
     <>
       <div className="head"><div><p className="label">Debts</p><h1>Your fastest way out</h1></div></div>
       <div className="grid cols3">
-        <Kpi label="Total owed" value={money(M.debtTotal)} sub={<Explain><p>{rows.length ? rows.map((r) => `${r.x.name} ${money(r.x.balance, r.x.currency)}`).join(' + ') : 'Nothing'} = {money(M.debtTotal)}{rows.some((r) => r.x.currency !== view) ? `, converted to ${view} at today's rate` : ''}.</p></Explain>} />
+        <Kpi label="Total owed" value={money(M.debtTotal)} sub={<Explain><p>{rows.length ? rows.map((r) => `${r.x.name} ${money(r.x.balance, r.x.currency)}`).join(' + ') : 'Nothing'} = {money(M.debtTotal)}{rates ? `, converted to ${view} at today's rate (${rates})` : ''}.</p></Explain>} />
         <Kpi label="Interest per month" value={money(interestMo)} sub={<Explain>
           {pd.length ? <p>{pd.map((x) => `${nameOf(x.id)}: ${money(x.balance)} × ${x.apr}% ÷ 12 = ${money((x.balance * x.apr) / 1200)}`).join('; ')}. Total {money(interestMo)}. Cards you clear in full every month are left out.</p> : <p>No loans or carried card balances, so no interest.</p>}
         </Explain>} />
@@ -159,7 +164,7 @@ export function Debts() {
                     {x.acct && <span>statement imported {dlong(x.asOf)}</span>}
                   </div>
                 </div>
-                <div className="a">{money(x.balance, x.currency)}</div>
+                <div className="a">{bal !== null && x.currency !== view ? <>{money(bal)}<br /><FxNote orig={{ amt: x.balance, cur: x.currency }} /></> : money(x.balance, x.currency)}</div>
                 <div className="m" style={{ gridColumn: '1 / -1' }}>
                   {!cleared && (bal === null ? <span className="muted">No exchange rate for {x.currency} yet</span> : int !== null && <span>{money(int)} interest a month</span>)}
                   <button className="btn plain" onClick={() => open(x.id)}>Edit</button>
@@ -181,7 +186,10 @@ export function Debts() {
             </div>
             <div className="field">
               <label htmlFor="d-extra">Extra per month: <b>{money(st.extra)}</b></label>
-              <input id="d-extra" type="range" min={0} max={sliderMax} step={500} value={Math.min(st.extra, sliderMax)} onChange={(e) => set({ extra: +e.target.value })} />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input id="d-extra" type="range" min={0} max={sliderMax} step={step} value={Math.min(st.extra, sliderMax)} onChange={(e) => set({ extra: +e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+                <input type="number" inputMode="decimal" min={0} step="any" aria-label={`Extra per month (${sym(view)})`} value={st.extra || ''} placeholder="0" onChange={(e) => set({ extra: Math.max(0, +e.target.value || 0) })} style={{ width: '7.5em' }} />
+              </div>
             </div>
             {cmp.base.never.map((id) => <p className="small" key={id} style={{ color: 'var(--bad)' }}>{nameOf(id)} will never be paid off at the minimum.</p>)}
             <ol style={{ paddingLeft: 20, margin: '10px 0' }}>

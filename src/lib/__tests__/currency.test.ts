@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { money, short, setCurrency, getCurrency, sym, CURRENCIES, SOUTH_ASIAN } from '../format';
+import { money, niceStep, short, setCurrency, getCurrency, sym, CURRENCIES, SOUTH_ASIAN } from '../format';
 import { num } from '../parse';
 
 afterEach(() => setCurrency('INR'));
@@ -39,5 +39,17 @@ describe('num with currencies', () => {
     expect(num('Rs. 500 Dr')).toBe(500);
     expect(num('AED -20')).toBe(-20);
     expect(num('1e5')).toBe(100000);
+  });
+});
+
+describe('niceStep', () => {
+  it('rounds max ÷ 100 to 1, 2 or 5 × 10^k, at least 1', () => {
+    expect(niceStep(50000)).toBe(500); // 500 → 5 × 100
+    expect(niceStep(18400)).toBe(200); // 184 → 1.84 × 100 → 2 × 100
+    expect(niceStep(3000)).toBe(20); // 30 → 3 × 10 → 2 × 10
+    expect(niceStep(7500)).toBe(100); // 75 → 7.5 × 10 → 10 × 10
+    expect(niceStep(1200)).toBe(10); // 12 → 1.2 × 10 → 1 × 10
+    expect(niceStep(80)).toBe(1); // 0.8 → min 1
+    expect(niceStep(0)).toBe(1);
   });
 });

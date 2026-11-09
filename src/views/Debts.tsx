@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { addM, CURRENCIES, dlong, getCurrency, mdiff, mlabel, money, sym, thisMonth } from '../lib/format';
-import { compare, toPayDebts } from '../lib/debt';
+import { CARD_MIN_PCT_DEFAULT, compare, toPayDebts } from '../lib/debt';
 import { toView } from '../lib/fx';
-import { CARD_MIN_PCT_DEFAULT } from '../lib/debt';
 import type { Debt } from '../lib/types';
 import { useStore } from '../store';
 import { ConfirmButton, Explain, Kpi, Panel } from '../components/ui';

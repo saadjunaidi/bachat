@@ -69,7 +69,7 @@ export default function App() {
     <>
       <header className="appbar">
         <div className="wrap bar">
-          <a className="brand" href="#overview" onClick={(e) => { e.preventDefault(); go('overview'); }}>
+          <a className="brand" href="#welcome" onClick={(e) => { e.preventDefault(); go('welcome'); }}>
             <Logo size={28} />MoneyInMyPocket
           </a>
           <nav className="tabs" aria-label="Sections">

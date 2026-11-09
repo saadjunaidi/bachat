@@ -22,7 +22,9 @@ p,li{color:var(--fg)}.muted{color:var(--muted)}a{color:var(--accent)}
 <h2>Backups</h2>
 <p>A backup file or backup code contains all your data. It is created on your device and only goes where you choose to send it. Anyone who has it can read your transactions, so keep it private.</p>
 <h2>What the server sees</h2>
-<p>The web server only delivers the app's files (HTML, scripts, fonts, icons). Like any website, the hosting provider may keep standard access logs such as IP address and time of request. Bachat uses no analytics, ads or third-party trackers, and loads no scripts, fonts or images from other websites. The only other request it ever makes is for currency exchange rates, and only if you use a second currency; that request contains currency codes and dates, never your data.</p>
+<p>The web server only delivers the app's files (HTML, scripts, fonts, icons). Like any website, the hosting provider may keep standard access logs such as IP address and time of request. Bachat uses no analytics, ads or third-party trackers, and loads no scripts, fonts or images from other websites. The only other request it ever makes is for currency exchange rates, and only if you use a second currency; that request contains only currency codes and dates, never your data.</p>
+<h2>Exchange rates</h2>
+<p>When something you add (an account, debt, goal, gift or asset) uses a currency other than your view currency, Bachat fetches exchange rates from a free public rate service, served by jsDelivr (cdn.jsdelivr.net) or, as a fallback, currency-api.pages.dev. Like any website, the rate provider sees your IP address and the time of the request. The request contains only currency codes and dates; nothing about your transactions, balances or amounts is sent.</p>
 <h2>Deleting your data</h2>
 <p>Use <b>Statements → Settings → Delete all my data</b>, or clear this site's data in your browser settings. Uninstalling the app also removes it.</p>
 <h2>Not financial advice</h2>

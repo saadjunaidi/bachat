@@ -353,3 +353,65 @@ describe('long-term goal', () => {
     expect(plan(d, model({ inc: 100000 }, { bankBal: 100000 }), FX, NOW).longTerm.have).toBe(40000);
   });
 });
+
+describe('fix round 1', () => {
+  it('float residue never shows as a "₹0 short" shortfall', () => {
+    // From the fuzz: real return (1.07 / 1.01) − 1 ≠ 0 gives a non-integer reserve; the on-time stretch takes
+    // every rupee of `avail`, so left = 0 exactly on paper but came out as −3.6e-12 in floating point.
+    const d = data({ age: '42', goals: [goal({ name: 'G0', price: 205925, saved: 25070, ret: 1, date: '2027-05', stretchChoice: 'onTime' })] });
+    d.settings.longTerm = lt({ targetAge: 56, ret: 7, infl: 1 });
+    d.settings.givingPlan = 468;
+    const P = plan(d, model({ inc: 140194, needs: 70802, spendExEmi: 58016 }, { bankBal: 218847 }), FX, NOW);
+    expect(P.goals[0].verdict).toBe('stretch');
+    expect(P.goals[0].effDate).toBe('2027-05'); // on time
+    expect(P.shortfall).toBe(0);
+    expect(P.guiltFree).toBe(0);
+    expect(P.biggest).toBeNull();
+    expect(P.explain).not.toContain('short');
+    expect(P.explain).not.toContain('−₹0');
+  });
+
+  it('target age at or below the current age asks for a later one', () => {
+    const d = data({ age: '60', targetAge: 50 });
+    const P = plan(d, model({ inc: 100000, needs: 50000, spendExEmi: 4000 }), FX, NOW);
+    expect(P.longTerm.status).toBe('needAge');
+    expect(P.longTerm.reserve).toBe(0);
+    expect(P.longTerm.projected).toBeNull();
+    expect(line(P, 'longTerm').amount).toBe(0);
+    expect(line(P, 'longTerm').explain).toBe('Choose a target age later than your current age (60).');
+    // 100000 − 50000 = 50000, no huge shortfall
+    expect(P.guiltFree).toBe(50000);
+  });
+
+  it('no income: income multiple is 0 (not Infinity) and the goal is bad', () => {
+    const g = assessGoals([goal({ price: 100000, date: '2027-11' })], 0, 0, 0, NOW, () => 99, FX).results[0];
+    expect(g.incomeMultiple).toBe(0);
+    expect(g.verdict).toBe('bad');
+    expect(g.reason).toContain('no income');
+  });
+
+  it('wait-only stretch with no reserve points to the target age, not "too much"', () => {
+    // No age → reserve 0 → on-time impossible. avail = 100000 − 70000 = 30000.
+    // 400000 in 4 months: wait k = 10 → 400000 / 14 = 28571 ≤ 30000 → stretch by waiting.
+    const d = data({ goals: [goal({ price: 400000, date: '2027-03' })] });
+    const g = plan(d, model({ inc: 100000, needs: 70000 }), FX, NOW).goals[0];
+    expect(g.verdict).toBe('stretch');
+    expect(g.reason).toContain('target age to see the buy-on-time option');
+    expect(g.reason).not.toContain('too much');
+  });
+
+  it('on time is not offered when the long-term goal is out of reach even without the cut', () => {
+    // age 20 → target age 125 = 1260 months, past the 1200-month projection horizon,
+    // so the no-cut projection never arrives and the slip can't be measured → Infinity → no on-time option.
+    const d = data({ age: '20', targetAge: 125, goals: [goal({ price: 200000, date: '2027-04', stretchChoice: 'onTime' })] });
+    const g = plan(d, model({ inc: 100000, needs: 60000, spendExEmi: 4000 }), FX, NOW).goals[0];
+    expect(g.onTimeSlip).toBeNull();
+    expect(g.reason).not.toContain('keeps its date');
+  });
+
+  it('extra with no debts is left off the debt line but explained', () => {
+    const P = plan(data({ extra: 5000 }), model({ inc: 100000 }), FX, NOW);
+    expect(line(P, 'debt').amount).toBe(0);
+    expect(line(P, 'debt').explain).toContain("Your extra ₹5K/mo isn't applied because no card or loan is added");
+  });
+});

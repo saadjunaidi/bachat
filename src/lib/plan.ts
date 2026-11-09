@@ -24,6 +24,9 @@ const EARLIEST_MAX_MONTHS = 600;
 /** Long-term projection horizon (100 years), matching finance.monthsTo. */
 const HORIZON_MONTHS = 1200;
 const EPS = 1e-9;
+/** Money tolerance: amounts within half a paisa/cent of 0 are 0 (float residue, never shown as "₹0 short"). */
+const MONEY_EPS = 0.005;
+const snap = (x: number) => (Math.abs(x) < MONEY_EPS ? 0 : x);
 
 export interface PlanLine { key: 'income' | 'needs' | 'debt' | 'giving' | 'longTerm' | 'goals'; label: string; amount: number; explain: string }
 /**
@@ -66,8 +69,9 @@ export function longTerm(input: { yearlySpend: number; have: number; age: number
   if (age == null || !Number.isFinite(age) || lt.targetAge == null) {
     return { ...base, reserve: 0, targetMonth: null, projected: null, status: 'needAge', monthsVsTarget: null, projectedNoExtra: null };
   }
-  // A target age at or below the current age is treated as "next month" (a 1-month plan) rather than an error.
-  const months = Math.max(1, Math.round((lt.targetAge - age) * 12));
+  const months = Math.round((lt.targetAge - age) * 12);
+  // A target age at or below the current age can't be planned for: ask for a later one (the view's explain says so).
+  if (months <= 0) return { ...base, reserve: 0, targetMonth: null, projected: null, status: 'needAge', monthsVsTarget: null, projectedNoExtra: null };
   const rr = realReturn(lt);
   const reserve = needed(target, have, months, rr);
   const at = (c: (k: number) => number) => { const m = projectMonths(have, target, rr, c); return Number.isFinite(m) ? m : null; };
@@ -92,9 +96,12 @@ const monthsWord = (n: number) => n + (n === 1 ? ' month' : ' months');
  * its place in the order" is circular (the new date depends on what earlier goals leave), so the original date
  * decides the order. Prices and savings are converted at today's rate; a goal with no rate yet is left out
  * (the currency is already reported in Model.fxMissing). `infl` and goal.ret are percentages.
+ * `opts.noReserveHint`: when there is no long-term reserve to cut (no age / target age, or already reached), the
+ * wait-only stretch reason ends with this hint instead of "buying on time would slow … too much".
  */
-export function assessGoals(goals: ShortGoal[], avail: number, income: number, infl: number, now: string, ltSlip: LtSlip, fx: Fx, ltName = 'your long-term goal'): { results: GoalResult[]; used: number; ltCut: (k: number) => number } {
+export function assessGoals(goals: ShortGoal[], avail: number, income: number, infl: number, now: string, ltSlip: LtSlip, fx: Fx, opts: { ltName?: string; noReserveHint?: string } = {}): { results: GoalResult[]; used: number; ltCut: (k: number) => number } {
   const S = (n: number) => short(n, fx.view);
+  const ltName = opts.ltName ?? 'your long-term goal';
   const cuts: { amt: number; n: number }[] = [];
   const ltCut = (k: number) => cuts.reduce((s, c) => s + (k >= 1 && k <= c.n ? c.amt : 0), 0);
   const start = Math.max(0, avail);
@@ -112,16 +119,17 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
     // Monthly saving needed to buy it `m` months from now (Infinity if m ≤ 0 and not yet saved).
     const needAt = (m: number) => needed(adj(m), saved, m, ret);
     const need = needAt(n);
-    const incomeMultiple = income > 0 ? price / income : Infinity;
+    const noIncome = !(income > 0);
+    const incomeMultiple = noIncome ? 0 : price / income;
     const r: GoalResult = { id: g.id, verdict: 'bad', priceAdj: adj(n), monthly: 0, effDate: g.date, waitDate: null, waitMonthly: null, onTimeSlip: null, earliest: null, incomeMultiple, reason: '' };
     const earliest = () => {
-      for (let k = 1; k <= EARLIEST_MAX_MONTHS; k++) if (n + k >= 1 && needAt(n + k) <= remaining + EPS) return addM(g.date, k);
+      for (let k = 1; k <= EARLIEST_MAX_MONTHS; k++) if (n + k >= 1 && needAt(n + k) <= remaining + MONEY_EPS) return addM(g.date, k);
       return null;
     };
 
     // Good comes first: if it fits by its date, it needs no loan whatever its size.
-    if (need <= remaining + EPS) {
-      remaining = Math.max(0, remaining - need);
+    if (need <= remaining + MONEY_EPS) {
+      remaining = Math.max(0, snap(remaining - need));
       r.verdict = 'good';
       r.monthly = need;
       r.reason = n <= 0 || need === 0
@@ -138,17 +146,17 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
     }
 
     let wk: number | null = null;
-    for (let k = 1; k <= STRETCH_MAX_MONTHS; k++) if (needAt(n + k) <= remaining + EPS) { wk = k; break; }
+    for (let k = 1; k <= STRETCH_MAX_MONTHS; k++) if (needAt(n + k) <= remaining + MONEY_EPS) { wk = k; break; }
     if (wk != null) { r.waitDate = addM(g.date, wk); r.waitMonthly = needAt(n + wk); }
     const cut = need - remaining;
     const slip = ltSlip(cut, n, ltCut);
     if (Number.isFinite(slip) && slip <= STRETCH_MAX_MONTHS) r.onTimeSlip = slip;
 
-    if (incomeMultiple >= BAD_INCOME_MULTIPLE || (wk == null && r.onTimeSlip == null)) {
+    if (noIncome || incomeMultiple >= BAD_INCOME_MULTIPLE || (wk == null && r.onTimeSlip == null)) {
       r.waitDate = null; r.waitMonthly = null; r.onTimeSlip = null;
       r.earliest = earliest();
       const when = `Earliest without debt: ${r.earliest ? mlabel(r.earliest) : 'not within 50 years'}.`;
-      r.reason = !Number.isFinite(incomeMultiple)
+      r.reason = noIncome
         ? `There's no income in your recent statements to save for it from. ${when}`
         : incomeMultiple >= BAD_INCOME_MULTIPLE
           ? `That's ${times(incomeMultiple)} your monthly income. You'd need a loan. ${when}`
@@ -162,7 +170,7 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
     if (useWait) {
       r.monthly = r.waitMonthly!;
       r.effDate = r.waitDate!;
-      remaining = Math.max(0, remaining - r.waitMonthly!);
+      remaining = Math.max(0, snap(remaining - r.waitMonthly!));
     } else {
       r.monthly = need;
       cuts.push({ amt: cut, n });
@@ -171,7 +179,7 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
     const buy = r.onTimeSlip == null ? null
       : `buy ${mlabel(g.date)} and ${ltName} ${r.onTimeSlip === 0 ? 'keeps its date' : `slips ${monthsWord(r.onTimeSlip)}`}`;
     const wait = r.waitDate == null ? null : `wait until ${mlabel(r.waitDate)} (${S(r.waitMonthly!)}/mo) and nothing slips`;
-    const s = buy && wait ? `${buy}, or ${wait}` : buy ? `${buy}; waiting 2 years isn't enough` : `${wait}; buying on time would slow ${ltName} too much`;
+    const s = buy && wait ? `${buy}, or ${wait}` : buy ? `${buy}; waiting 2 years isn't enough` : `${wait}; ${opts.noReserveHint ?? `buying on time would slow ${ltName} too much`}`;
     r.reason = s.charAt(0).toUpperCase() + s.slice(1) + '.';
     results.push(r);
   }
@@ -239,14 +247,19 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
     if (!(cut > 0)) return 0;
     if (!Number.isFinite(cut)) return Infinity;
     // The cut has to come out of what's left of the reserve in every month 1..n.
-    for (let k = 1; k <= n; k++) if (reserve - prior(k) - cut < -EPS) return Infinity;
+    for (let k = 1; k <= n; k++) if (reserve - prior(k) - cut < -MONEY_EPS) return Infinity;
     const without = projectMonths(have, target, rr, (k) => baseContrib(k) - prior(k));
     const withCut = projectMonths(have, target, rr, (k) => baseContrib(k) - prior(k) - (k <= n ? cut : 0));
-    if (!Number.isFinite(withCut)) return Infinity;
-    return Number.isFinite(without) ? Math.max(0, withCut - without) : 0;
+    // If either date is out of reach the slip can't be measured: no on-time option (never "keeps its date").
+    if (!Number.isFinite(withCut) || !Number.isFinite(without)) return Infinity;
+    return Math.max(0, withCut - without);
   };
-  const avail = Math.max(0, a.inc - a.needs - debtAmt - giving - reserve);
-  const G = assessGoals(d.goals, avail, a.inc, lt.infl, now, ltSlip, fx, ltName);
+  const avail = Math.max(0, snap(a.inc - a.needs - debtAmt - giving - reserve));
+  const noReserveHint = reserve > 0 ? undefined
+    : age == null ? 'add your age and a target age to see the buy-on-time option'
+      : lt.targetAge == null || lt.targetAge <= age ? 'set a target age to see the buy-on-time option'
+        : `there's no ${ltName} saving to borrow from to buy on time`;
+  const G = assessGoals(d.goals, avail, a.inc, lt.infl, now, ltSlip, fx, { ltName, noReserveHint });
   const LT = longTerm({
     yearlySpend, have, age, lt, now,
     contrib: (k) => baseContrib(k) - G.ltCut(k),
@@ -255,16 +268,17 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   });
 
   const cutNow = G.ltCut(1);
-  const ltAmt = Math.max(0, reserve - cutNow);
+  const ltAmt = Math.max(0, snap(reserve - cutNow));
   const goalsAmt = G.results.reduce((t, r) => t + r.monthly, 0);
 
   const debtParts: string[] = [];
   if (pd.length) debtParts.push(`${S(mins)} in minimum payments and EMIs`);
   if (extra > 0) debtParts.push(`${S(extra)} extra you chose`);
   if (emiSeen > 0) debtParts.push(`${S(emiSeen)} in loan EMIs seen in your statements (add this loan to plan its payoff)`);
-  const debtExplain = debtParts.length
+  const unused = !pd.length && (s.extra || 0) > 0 ? ` Your extra ${S(s.extra)}/mo isn't applied because no card or loan is added.` : '';
+  const debtExplain = (debtParts.length
     ? `${debtParts.join(' + ')} = ${S(debtAmt)} a month${debtFree ? `, debt-free by ${mlabel(debtFree)}` : ''}.`
-    : 'You have no debt payments.';
+    : 'You have no debt payments.') + unused;
 
   const givingExplain = zakatM > 0
     ? `${S(zakatM)} zakat (the yearly amount due ÷ 12) + ${S(planned)} planned giving = ${S(giving)} a month.`
@@ -272,7 +286,9 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
 
   const ltFormula = `${S(yearlySpend)} a year of spending × ${lt.mult}${lt.type === 'retirement' ? ` × ${lt.retirePct}%` : ''}`;
   const ltExplain = LT.status === 'needAge'
-    ? age == null ? `Enter your age to work out how much to put aside for ${ltName}.` : `Choose a target age to work out how much to put aside for ${ltName}.`
+    ? age == null ? `Enter your age to work out how much to put aside for ${ltName}.`
+      : lt.targetAge != null && lt.targetAge <= age ? `Choose a target age later than your current age (${age}).`
+        : `Choose a target age to work out how much to put aside for ${ltName}.`
     : reserve <= 0
       ? `You already have ${S(have)}, enough for the ${S(target)} target (${ltFormula}, in today's money).`
       : `To reach ${S(target)} (${ltFormula}, in today's money) by ${mlabel(LT.targetMonth!)} from the ${S(have)} you have, put aside ${S(reserve)} a month${cutNow > 0 ? `, of which ${S(Math.min(cutNow, reserve))} goes to on-time goals for now` : ''}.`;
@@ -292,7 +308,7 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
     { key: 'goals', label: 'Short-term goals', amount: goalsAmt, explain: goalsExplain }
   ];
 
-  const left = a.inc - a.needs - debtAmt - giving - ltAmt - goalsAmt;
+  const left = snap(a.inc - a.needs - debtAmt - giving - ltAmt - goalsAmt);
   const guiltFree = Math.max(0, left);
   const shortfall = Math.max(0, -left);
   let biggest: string | null = null;

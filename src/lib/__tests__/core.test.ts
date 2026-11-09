@@ -155,6 +155,23 @@ describe('backup', () => {
     expect(r.data.debts).toHaveLength(2);
     expect(r.data.debts.find((x) => x.id === 'd1')!.apr).toBe(36);
   });
+  it('rejects newer backup versions but loads a missing v', async () => {
+    const mk = (v?: number) => JSON.stringify({ app: 'bachat', ...(v === undefined ? {} : { v }), at: '2026-01-01T00:00:00Z', state: { txns: [] } });
+    await expect(readBackup(mk(3))).rejects.toThrow(/newer version of Bachat/);
+    expect(restoreData(await readBackup(mk())).txns).toEqual([]);
+  });
+  it('merge: gifts by id (current wins) and assets rule', async () => {
+    const gift = (id: string, amount: number) => ({ id, date: '2026-10-01', amount, currency: 'INR', kind: 'sadaqah' as const });
+    const theirs = blank(); theirs.gifts = [gift('f1', 1), gift('f2', 2)]; theirs.assets = { ...theirs.assets, goldG: 50 };
+    const b = await readBackup(await makeBackup(theirs));
+    const mine = blank(); mine.gifts = [gift('f1', 99)]; mine.assets = { ...mine.assets, silverG: 5 };
+    const r = mergeData(mine, b);
+    expect(r.data.gifts).toHaveLength(2);
+    expect(r.data.gifts.find((g) => g.id === 'f1')!.amount).toBe(99);
+    expect(r.data.assets.goldG).toBe(0);
+    expect(r.data.assets.silverG).toBe(5);
+    expect(mergeData(blank(), b).data.assets.goldG).toBe(50);
+  });
   it('merges without duplicating', async () => {
     const full = big();
     const b = await readBackup(await makeBackup(full));

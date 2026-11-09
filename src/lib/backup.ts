@@ -47,7 +47,8 @@ export async function readBackup(text: string): Promise<Backup> {
     if (msg === 'format') throw new Error("That doesn't look like a Bachat backup. Copy the whole code, starting with BACHAT.");
     throw new Error('This backup is incomplete or damaged. Copy it again from the other device, making sure nothing is cut off.');
   }
-  if (!j || j.app !== 'bachat' || (j.v !== 1 && j.v !== 2) || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a Bachat backup.");
+  if (!j || j.app !== 'bachat' || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a Bachat backup.");
+  if (typeof j.v === 'number' && j.v > 2) throw new Error('This backup was made by a newer version of Bachat. Update the app and try again.');
   return j;
 }
 
@@ -70,8 +71,7 @@ export function mergeData(cur: Data, b: Backup): { data: Data; added: number } {
   const debts = base.debts.concat(st.debts.filter((x) => !did.has(x.id)));
   const fid = new Set(base.gifts.map((x) => x.id));
   const gifts = base.gifts.concat(st.gifts.filter((x) => !fid.has(x.id)));
-  const { currency: _c, ...nums } = base.assets;
-  const assets = Object.values(nums).some((n) => n !== 0) ? base.assets : st.assets;
+  const assets = Object.entries(base.assets).some(([k, n]) => k !== 'currency' && n !== 0) ? base.assets : st.assets;
   return {
     added,
     data: {

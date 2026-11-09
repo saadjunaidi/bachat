@@ -125,6 +125,14 @@ describe('import', () => {
     // Net worth = the $100 balance only (was $314,000-style figures from the sample's INR assets before).
     expect(build(d, EMPTY_FX('USD')).netWorth).toBe(100);
   });
+  it('first import over sample data does not keep the sample\'s own age', async () => {
+    const { sampleData } = await import('../sample');
+    // The sample sets age 33 for its demo plan; a user who never entered an age must not inherit it.
+    const s = sampleData();
+    const d = commit(s, 'HDFC', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: 100 }]).data;
+    expect(d.sample).toBe(false);
+    expect(d.settings.age).toBe('');
+  });
   it('blank() uses the given currency for assets and settings', () => {
     expect(blank('USD').assets.currency).toBe('USD');
     expect(blank('USD').settings.currency).toBe('USD');

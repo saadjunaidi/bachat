@@ -90,10 +90,15 @@ export function blank(currency = 'INR'): Data {
  * Empty data to replace the sample with: nothing from the sample (assets, metal prices, target age, giving plan…)
  * carries over, only the user's own choices of view currency, Islamic guidance and age.
  */
+/** The age the sample data uses for its demo plan. */
+export const SAMPLE_AGE = '33';
+
 export function clearSample(d: Data): Data {
   const s = d.settings;
   const b = blank(s.currency);
-  return { ...b, settings: { ...b.settings, islamic: s.islamic, age: s.age } };
+  // Keep an age the user typed while viewing the sample, but never the sample's own demo age.
+  const age = s.age === SAMPLE_AGE ? '' : s.age;
+  return { ...b, settings: { ...b.settings, islamic: s.islamic, age } };
 }
 
 /** Bring any stored or restored shape (v1 or current) up to the current Data shape. Idempotent. */

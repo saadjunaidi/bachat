@@ -1,11 +1,11 @@
-import { blank, type Data } from './types';
+import { blank, SAMPLE_AGE, type Data } from './types';
 import { addM, iso, MN, thisMonth } from './format';
 
 /** Realistic, clearly-labelled demo data so the first view shows what the app does. */
 export function sampleData(): Data {
   const s = blank();
   s.sample = true;
-  s.settings.age = '33';
+  s.settings.age = SAMPLE_AGE;
   let seed = 11;
   const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const ri = (a: number, b: number) => Math.round(a + rnd() * (b - a));

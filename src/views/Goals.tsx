@@ -22,7 +22,7 @@ function GoalForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!g.name.trim() || !g.price || !g.date) return;
+    if (!g.name.trim() || !(g.price > 0) || !g.date) return;
     const goal = { ...g, name: g.name.trim(), id: g.id || 'g' + Date.now() };
     setData((d) => {
       const i = d.goals.findIndex((x) => x.id === goal.id);
@@ -42,7 +42,7 @@ function GoalForm() {
         <input id="g-name" type="text" required placeholder="e.g. car, Hajj, new phone" value={g.name} onChange={(e) => set({ name: e.target.value })} /></div>
       <div className="form two">
         <div className="field"><label htmlFor="g-target">Price ({sym(g.currency)})</label>
-          <input id="g-target" type="number" inputMode="numeric" min={1} required value={g.price || ''} onChange={(e) => set({ price: +e.target.value })} /></div>
+          <input id="g-target" type="number" inputMode="decimal" step="any" min={0.01} required value={g.price || ''} onChange={(e) => set({ price: +e.target.value })} /></div>
         <div className="field"><label htmlFor="g-cur">Currency</label>
           <select id="g-cur" value={g.currency} onChange={(e) => set({ currency: e.target.value })}>
             {curs.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -52,7 +52,7 @@ function GoalForm() {
         <div className="field"><label htmlFor="g-date">Buy it by</label>
           <input id="g-date" type="month" required value={g.date} onChange={(e) => set({ date: e.target.value })} /></div>
         <div className="field"><label htmlFor="g-saved">Already saved ({sym(g.currency)})</label>
-          <input id="g-saved" type="number" inputMode="numeric" min={0} value={g.saved || ''} onChange={(e) => set({ saved: +e.target.value })} /></div>
+          <input id="g-saved" type="number" inputMode="decimal" step="any" min={0} value={g.saved || ''} onChange={(e) => set({ saved: +e.target.value })} /></div>
       </div>
       <div className="field"><label htmlFor="g-ret">Expected yearly return % on what you've saved</label>
         <input id="g-ret" type="number" step={0.5} value={g.ret} onChange={(e) => set({ ret: +e.target.value })} /></div>
@@ -101,7 +101,6 @@ function LongTermCard() {
             <span className={'pill ' + pillCls}>{pillTxt}</span></div>
         </div>
       )}
-      {!P.ready && <p className="muted">{NEED_IMPORT}</p>}
       {P.ready && (
         <Explain>
           <p>Target = a year of spending × {lt.mult}{lt.type === 'retirement' ? ` × ${lt.retirePct}%` : ''} = {money(L.yearlySpend)} × {lt.mult}{lt.type === 'retirement' ? ` × ${lt.retirePct}%` : ''} = {money(L.target)}, in today's money.</p>
@@ -156,7 +155,7 @@ function GoalCard({ g, r }: { g: ShortGoal; r: GoalResult | undefined }) {
           <i style={{ width: p * 100 + '%', background: v ? v.color : 'var(--muted)' }} />
         </div>
         <p className="small muted">{short(g.saved || 0, cur)} saved of {short(g.price, cur)}</p>
-        {!r && <p className="small muted">No exchange rate for {cur} yet</p>}
+        {P.ready && !r && <p className="small muted">No exchange rate for {cur} yet</p>}
         {r && P.ready && <p>{r.reason}</p>}
         {r && P.ready && r.verdict === 'stretch' && (
           <div className="seg" role="group" aria-label="Stretch choice">
@@ -167,14 +166,14 @@ function GoalCard({ g, r }: { g: ShortGoal; r: GoalResult | undefined }) {
         {r && P.ready && r.verdict === 'bad' && (
           <div className="facts">
             <div className="fact"><span className="small muted">Earliest it fits</span><b>{r.earliest ? mlabel(r.earliest) : 'Not within 50 years'}</b></div>
-            <div className="fact"><span className="small muted">Price vs income</span><b>{r.incomeMultiple.toFixed(1)}× monthly income</b></div>
+            {r.incomeMultiple > 0 && <div className="fact"><span className="small muted">Price vs income</span><b>{r.incomeMultiple.toFixed(1)}× monthly income</b></div>}
           </div>
         )}
         {r && P.ready && (
           <Explain>
             <p>Price {money(g.price, cur)}{cur !== getCurrency() ? ` (${cur}, converted at today's rate)` : ''}, grown {infl}% a year for {n} {n === 1 ? 'month' : 'months'}, is {short(r.priceAdj)} by {mlabel(g.date)}.</p>
             <p>You've saved {short(g.saved || 0, cur)}{g.ret ? ` growing at ${g.ret}% a year` : ''}, so it needs {money(r.monthly)} a month{r.verdict === 'good' ? '.' : ' if it took its place in the plan.'}</p>
-            <p>The price is {r.incomeMultiple.toFixed(1)}× your average monthly income.</p>
+            {r.incomeMultiple > 0 && <p>The price is {r.incomeMultiple.toFixed(1)}× your average monthly income.</p>}
           </Explain>
         )}
         <div className="formactions">

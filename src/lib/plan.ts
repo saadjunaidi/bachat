@@ -123,9 +123,20 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
     const noIncome = !(income > 0);
     const incomeMultiple = noIncome ? 0 : price / income;
     const r: GoalResult = { id: g.id, verdict: 'bad', priceAdj: adj(n), monthly: 0, effDate: g.date, waitDate: null, waitMonthly: null, onTimeSlip: null, earliest: null, incomeMultiple, reason: '' };
+    // Earliest month (as an offset from now) the goal fits, either from `remaining` alone, or once earlier goals that
+    // took money have finished (month S = the latest of their dates; from S on the whole `start` is free).
+    // From S, saving m − S months: needed(price at m, savings grown to S, m − S, ret) ≤ start. Month S itself counts
+    // only if already covered. Searches up to 600 months past the goal's date; null beyond that.
     const earliest = () => {
-      for (let k = 1; k <= EARLIEST_MAX_MONTHS; k++) if (n + k >= 1 && needAt(n + k) <= remaining + MONEY_EPS) return addM(g.date, k);
-      return null;
+      let best: number | null = null;
+      for (let k = 1; k <= EARLIEST_MAX_MONTHS; k++) if (n + k >= 1 && needAt(n + k) <= remaining + MONEY_EPS) { best = n + k; break; }
+      const S = results.reduce((t, x) => (x.monthly > 0 ? Math.max(t, mdiff(now, x.effDate)) : t), 0);
+      const savedS = saved * Math.pow(1 + ret, S / 12);
+      for (let m = Math.max(S, 1); m <= n + EARLIEST_MAX_MONTHS; m++) {
+        if (best != null && m >= best) break;
+        if (needed(adj(m), savedS, m - S, ret) <= start + MONEY_EPS) { best = m; break; }
+      }
+      return best == null ? null : addM(now, best);
     };
 
     // Good comes first: if it fits by its date, it needs no loan whatever its size.
@@ -196,14 +207,15 @@ const zakatMonthlyFor = (d: Data, M: Model, fx: Fx): number => {
 export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}): Plan {
   const a = M.a3;
   const s = d.settings;
-  const lt = s.longTerm;
   const view = fx.view;
+  const ageN = parseInt(s.age, 10);
+  const age = Number.isFinite(ageN) ? ageN : null;
+  // No target age chosen yet: plan with the suggested one (the Goals view shows the same number in its input).
+  const lt: LongTerm = s.longTerm.targetAge == null && age != null ? { ...s.longTerm, targetAge: suggestAge(s.longTerm.type, age) } : s.longTerm;
+
   const S = (n: number) => short(n, view);
   const ltName = lt.type === 'retirement' ? 'retirement' : 'freedom';
   const ltLabel = lt.type === 'retirement' ? 'Retirement' : 'Financial freedom';
-  const ageN = parseInt(s.age, 10);
-  const age = Number.isFinite(ageN) ? ageN : null;
-
   // Long-term "already have": bank + investments − what's already saved for short-term goals (never below 0).
   const goalSaved = d.goals.reduce((t, g) => t + (toView(g.saved, g.currency || view, fx) ?? 0), 0);
   const inv = toView(d.assets.investments, d.assets.currency || view, fx) ?? 0; // no rate: 0, already in M.fxMissing

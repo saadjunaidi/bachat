@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assessGoals, longTerm, plan, suggestAge, type Plan } from '../plan';
 import { EMPTY_FX } from '../fx';
 import type { Model } from '../model';
+import { addM } from '../format';
 import { blank, type Data, type Debt, type LongTerm, type ShortGoal } from '../types';
 
 const NOW = '2026-11';
@@ -440,3 +441,33 @@ describe('plan giving line with zakat', () => {
     expect(line(plan(d, model({ inc: 100000 }), FX, NOW), 'giving').amount).toBe(0);
   });
 });
+
+describe('fix round 2', () => {
+  it('no target age + known age plans with the suggested target age', () => {
+    // age 33, freedom: suggestAge = max(50, 48) = 50
+    const m = model({ inc: 100000, needs: 50000, spendExEmi: 4000 }, { bankBal: 100000 });
+    const a = plan(data({ age: '33', targetAge: null }), m, FX, NOW);
+    const b = plan(data({ age: '33', targetAge: 50 }), m, FX, NOW);
+    expect(a.longTerm).toEqual(b.longTerm);
+    expect(a.longTerm.status).not.toBe('needAge');
+    expect(a.longTerm.reserve).toBeGreaterThan(0);
+    expect(a.lines).toEqual(b.lines);
+  });
+
+  it('earliest counts money freed when earlier goals finish', () => {
+    // avail 100000. G1 (good) takes 99947/mo: 28 months × 99947 = 2,798,516 ≈ price; its date is now+28 = 2029-03.
+    // G2 price 400000 (saved 0, ret 0, infl 0) due now+30, income 10000 → 40× ≥ 24 → bad; processed after G1 (later date).
+    // From S = 28 the full 100000 is free: 400000 / 100000 = 4 months → month 32.
+    const g1 = goal({ id: 'a', name: 'A', price: 99947 * 28, date: addMonths(28) });
+    const g2 = goal({ id: 'b', name: 'B', price: 400000, date: addMonths(30) });
+    const { results } = assessGoals([g1, g2], 100000, 10000, 0, NOW, noSlip, FX);
+    const r1 = results.find((r) => r.id === 'a')!;
+    const r2 = results.find((r) => r.id === 'b')!;
+    expect(r1.verdict).toBe('good');
+    expect(r1.monthly).toBe(99947);
+    expect(r2.verdict).toBe('bad');
+    expect(r2.earliest).toBe(addMonths(32));
+  });
+});
+
+function addMonths(k: number) { return addM(NOW, k); }

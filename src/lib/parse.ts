@@ -42,13 +42,14 @@ export function pdate(v: Cell): Date | null {
   return null;
 }
 
-/** "1,85,000.00", "₹ 649", "(1,200)", "2,340.50 Dr" -> number */
+/** "1,85,000.00", "₹ 649", "$1,234.50", "PKR 1,000", "(1,200)", "2,340.50 Dr" -> number */
 export function num(v: Cell): number {
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return v;
   let s = String(v).trim();
+  s = s.replace(/\s*(cr|dr)\.?$/i, '').replace(/[A-Za-z$€£¥₹৳₨﷼]+\.?/g, '').replace(/[,\s]/g, '');
   const neg = /^\(.*\)$/.test(s) || /^-/.test(s);
-  s = s.replace(/₹|inr|rs\.?/gi, '').replace(/[,\s]/g, '').replace(/(cr|dr)\.?$/i, '').replace(/[()\-+]/g, '');
+  s = s.replace(/[()\-+]/g, '');
   const n = parseFloat(s);
   return isNaN(n) ? 0 : neg ? -n : n;
 }

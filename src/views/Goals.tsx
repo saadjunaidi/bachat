@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { addM, dlabel, mdiff, mlabel, money, pct, short, thisMonth } from '../lib/format';
+import { addM, dlabel, getCurrency, mdiff, mlabel, money, pct, short, sym, thisMonth } from '../lib/format';
 import { monthsTo, needed } from '../lib/finance';
 import type { ShortGoal } from '../lib/types';
 import { useStore } from '../store';
@@ -31,15 +31,15 @@ function GoalForm() {
   return (
     <form className="form" onSubmit={submit}>
       <div className="field"><label htmlFor="g-name">Goal</label>
-        <input id="g-name" type="text" required placeholder="e.g. ₹50 lakh savings, car, Hajj" value={g.name} onChange={(e) => set({ name: e.target.value })} /></div>
+        <input id="g-name" type="text" required placeholder="e.g. car, Hajj, new phone" value={g.name} onChange={(e) => set({ name: e.target.value })} /></div>
       <div className="form two">
-        <div className="field"><label htmlFor="g-target">Target amount (₹)</label>
+        <div className="field"><label htmlFor="g-target">Target amount ({sym(getCurrency())})</label>
           <input id="g-target" type="number" inputMode="numeric" min={1} required value={g.price || ''} onChange={(e) => set({ price: +e.target.value })} /></div>
         <div className="field"><label htmlFor="g-date">Reach it by</label>
           <input id="g-date" type="month" required value={g.date} onChange={(e) => set({ date: e.target.value })} /></div>
       </div>
       <div className="form two">
-        <div className="field"><label htmlFor="g-saved">Already saved for it (₹)</label>
+        <div className="field"><label htmlFor="g-saved">Already saved for it ({sym(getCurrency())})</label>
           <input id="g-saved" type="number" inputMode="numeric" min={0} value={g.saved || ''} onChange={(e) => set({ saved: +e.target.value })} /></div>
         <div className="field"><label htmlFor="g-ret">Expected yearly return %</label>
           <input id="g-ret" type="number" step={0.5} value={g.ret} onChange={(e) => set({ ret: +e.target.value })} /></div>
@@ -121,7 +121,7 @@ export function Goals() {
           <div className="form two">
             <div className="field"><label htmlFor="f-mult">Multiple of yearly spending</label>
               <select id="f-mult" value={st.longTerm.mult} onChange={(e) => setSetting('mult', e.target.value)}>
-                <option value={25}>25× (4% rule)</option><option value={30}>30× (safer for India)</option><option value={33}>33× (very safe)</option>
+                <option value={25}>25× (4% rule)</option><option value={30}>30× (safer when inflation is high)</option><option value={33}>33× (very safe)</option>
               </select></div>
             <div className="field"><label htmlFor="f-age">Your age (optional)</label>
               <input id="f-age" type="number" inputMode="numeric" min={16} max={90} value={st.age} onChange={(e) => setSetting('age', e.target.value)} /></div>

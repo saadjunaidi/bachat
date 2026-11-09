@@ -1,16 +1,48 @@
-const NF = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+export const SOUTH_ASIAN = ['INR', 'PKR', 'BDT', 'NPR', 'LKR'];
 
-export const money = (n: number) => (n < 0 ? '−' : '') + '₹' + NF.format(Math.abs(Math.round(n || 0)));
+const PREFERRED = ['INR', 'PKR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'BDT', 'NPR', 'LKR', 'CAD', 'AUD', 'SGD', 'MYR', 'QAR', 'KWD', 'OMR', 'BHD', 'TRY', 'IDR', 'ZAR', 'NGN', 'EGP'];
+const allCodes = (): string[] => {
+  try {
+    return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('currency') ?? [];
+  } catch { return []; }
+};
+export const CURRENCIES: string[] = [...PREFERRED, ...allCodes().filter((c) => !PREFERRED.includes(c))];
 
-export const short = (n: number) => {
+const SYMS: Record<string, string> = { INR: '₹', PKR: 'Rs ', BDT: '৳', NPR: 'Rs ', LKR: 'Rs ', AED: 'AED ', SAR: 'SAR ', QAR: 'QAR ', KWD: 'KWD ', OMR: 'OMR ', BHD: 'BHD ' };
+
+export const sym = (cur: string): string => {
+  if (SYMS[cur]) return SYMS[cur];
+  try {
+    const p = new Intl.NumberFormat('en', { style: 'currency', currency: cur, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((x) => x.type === 'currency');
+    return p ? p.value : cur + ' ';
+  } catch { return cur + ' '; }
+};
+
+let view = 'INR';
+export const setCurrency = (code: string) => { view = code || 'INR'; };
+export const getCurrency = () => view;
+
+const NF_IN = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+const NF_EN = new Intl.NumberFormat('en', { maximumFractionDigits: 0 });
+
+export const money = (n: number, cur: string = view) =>
+  (n < 0 ? '−' : '') + sym(cur) + (SOUTH_ASIAN.includes(cur) ? NF_IN : NF_EN).format(Math.abs(Math.round(n || 0)));
+
+export const short = (n: number, cur: string = view) => {
   n = n || 0;
   const a = Math.abs(n);
-  const s = n < 0 ? '−' : '';
+  const s = (n < 0 ? '−' : '') + sym(cur);
   const f = (x: number) => String(parseFloat(x.toFixed(x >= 100 ? 0 : x >= 10 ? 1 : 2)));
-  if (a >= 1e7) return s + '₹' + f(a / 1e7) + ' Cr';
-  if (a >= 1e5) return s + '₹' + f(a / 1e5) + ' L';
-  if (a >= 1e3) return s + '₹' + f(a / 1e3) + 'K';
-  return s + '₹' + Math.round(a);
+  if (SOUTH_ASIAN.includes(cur)) {
+    if (a >= 1e7) return s + f(a / 1e7) + ' Cr';
+    if (a >= 1e5) return s + f(a / 1e5) + ' L';
+    if (a >= 1e3) return s + f(a / 1e3) + 'K';
+  } else {
+    if (a >= 1e9) return s + f(a / 1e9) + 'B';
+    if (a >= 1e6) return s + f(a / 1e6) + 'M';
+    if (a >= 1e3) return s + f(a / 1e3) + 'K';
+  }
+  return s + Math.round(a);
 };
 
 export const pct = (n: number) => (isFinite(n) ? (n * 100).toFixed(Math.abs(n) < 0.1 ? 1 : 0) : '–') + '%';

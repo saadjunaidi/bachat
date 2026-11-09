@@ -20,8 +20,16 @@ const TABS: { v: View; label: string; icon: ReactElement }[] = [
 ];
 
 function Banner() {
-  const { data, setData, M, view, go, setUi } = useStore();
-  if (M.fxMissing.length) {
+  const { data, setData, M, view, go, setUi, fxLoading } = useStore();
+  if (data.sample) {
+    return (
+      <div className="banner">
+        <p><b>You're looking at sample data.</b> Import your own bank statement to see your real numbers. Nothing leaves your device.</p>
+        <button className="btn" onClick={() => go('statements')}>Import a statement</button>
+      </div>
+    );
+  }
+  if (M.fxMissing.length && !fxLoading) {
     return (
       <div className="banner">
         <p><b>Some amounts in {M.fxMissing.join(', ')} aren't included because there's no exchange rate yet.</b></p>
@@ -34,14 +42,6 @@ function Banner() {
       <div className="banner">
         <p>Goals that counted your bank balance now start at 0 saved. Your bank balance counts toward your long-term goal instead.</p>
         <button className="btn" onClick={() => setData((d) => ({ ...d, notice: undefined }))}>Dismiss</button>
-      </div>
-    );
-  }
-  if (data.sample) {
-    return (
-      <div className="banner">
-        <p><b>You're looking at sample data.</b> Import your own bank statement to see your real numbers. Nothing leaves your device.</p>
-        <button className="btn" onClick={() => go('statements')}>Import a statement</button>
       </div>
     );
   }

@@ -22,5 +22,5 @@ export function commit(d: Data, acct: string, rows: Row[]): { data: Data; added:
     txns.push({ id, acct, date: r.date, desc: r.desc, amt: r.amt, bal: r.bal, seq: seqBase + i });
     added++;
   });
-  return { data: { ...base, txns, accounts: { ...base.accounts, [acct]: base.accounts[acct] || { name: acct } } }, added, dup };
+  return { data: { ...base, txns, accounts: { ...base.accounts, [acct]: base.accounts[acct] || { name: acct, currency: base.settings.currency } } }, added, dup };
 }

@@ -1,16 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CURRENCIES } from '../lib/format';
 import { foreignCurrencies } from '../lib/fx';
 import { useStore } from '../store';
 
 /** Bottom sheet (phones) / dialog (desktop) for app settings. */
 export function Settings() {
-  const { ui, setUi, data, setData, M, fx } = useStore();
+  const { ui, setUi, data, setData, M, fx, fxLoading } = useStore();
   const ref = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState<Record<string, string>>({});
   const open = ui.settingsOpen;
 
   useEffect(() => {
     if (!open) return;
+    setDraft({});
     const prev = document.activeElement as HTMLElement | null;
     setTimeout(() => ref.current?.querySelector<HTMLElement>('select,input')?.focus(), 30);
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setUi({ settingsOpen: false }); };
@@ -30,7 +32,8 @@ export function Settings() {
   let status: string | null = null;
   if (curs.length) {
     const date = fx.today?.date;
-    if (M.fxMissing.length) status = `No rate for ${M.fxMissing.join(', ')}. Enter one below.`;
+    if (M.fxMissing.length && fxLoading) status = null;
+    else if (M.fxMissing.length) status = `No rate for ${M.fxMissing.join(', ')}. Enter one below.`;
     else if (fx.failed) status = `Couldn't update rates (offline). Using ${date || 'saved rates'}`;
     else if (date) status = `Rates from ${date}`;
   }
@@ -52,7 +55,7 @@ export function Settings() {
         </div>
         {curs.length > 0 && (
           <div className="field">
-            <label>Exchange rates</label>
+            <p className="label">Exchange rates</p>
             {status && <p className="small muted" role="status">{status}</p>}
             {curs.map((c) => (
               <div className="fxrow" key={c}>
@@ -60,9 +63,11 @@ export function Settings() {
                 <input
                   type="number" min={0} step="any" inputMode="decimal" aria-label={`Manual rate for ${c}`}
                   placeholder={fx.today?.r[c] ? (1 / fx.today.r[c]).toPrecision(4) : 'Rate'}
-                  value={s.fxOverrides[c] ?? ''}
+                  value={draft[c] ?? (s.fxOverrides[c] != null ? String(s.fxOverrides[c]) : '')}
                   onChange={(e) => {
+                    setDraft((x) => ({ ...x, [c]: e.target.value }));
                     const v = parseFloat(e.target.value);
+                    if (e.target.value.trim() !== '' && !(isFinite(v) && v > 0)) return;
                     const next = { ...s.fxOverrides };
                     if (v > 0) next[c] = v; else delete next[c];
                     set({ fxOverrides: next });

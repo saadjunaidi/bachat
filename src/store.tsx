@@ -18,6 +18,7 @@ interface Store {
   setData: (f: (d: Data) => Data) => void;
   M: Model;
   fx: Fx;
+  fxLoading: boolean;
   P: Plan;
   month: string | null;
   ui: UI;
@@ -84,6 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const cur = data.settings.currency;
   const [fxRaw, setFxRaw] = useState<Fx>(() => EMPTY_FX(cur));
+  const [fxLoading, setFxLoading] = useState(false);
   const curs = useMemo(() => foreignCurrencies(data), [data]);
   const months = useMemo(() => {
     const view = cur.toUpperCase();
@@ -98,7 +100,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let stale = false;
-    loadFx(cur, curs, months).then((f) => { if (!stale) setFxRaw(f); }).catch(() => { /* offline: keep current rates */ });
+    setFxLoading(curs.length > 0);
+    loadFx(cur, curs, months)
+      .then((f) => { if (!stale) setFxRaw(f); })
+      .catch(() => { /* offline: keep current rates */ })
+      .finally(() => { if (!stale) setFxLoading(false); });
     return () => { stale = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur, key]);
@@ -111,7 +117,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const P = useMemo(() => plan(data, M, fx, thisMonth()), [data, M, fx]);
   const month = defaultMonth(M, ui.month);
 
-  const value = useMemo(() => ({ data, setData, M, fx, P, month, ui, setUi, toast, toastMsg, view, go }), [data, setData, M, fx, P, month, ui, setUi, toast, toastMsg, view, go]);
+  const value = useMemo(() => ({ data, setData, M, fx, fxLoading, P, month, ui, setUi, toast, toastMsg, view, go }), [data, setData, M, fx, fxLoading, P, month, ui, setUi, toast, toastMsg, view, go]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

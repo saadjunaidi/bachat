@@ -106,14 +106,18 @@ export function migrate(raw: any): Data {
     return { ...keep, price: target ?? 0, saved: link ? 0 : g?.saved ?? 0, currency, stretchChoice: 'wait' };
   });
 
+  const accounts: Record<string, AccountInfo> = {};
+  for (const [k, a] of Object.entries((r.accounts || {}) as Record<string, AccountInfo>)) accounts[k] = { ...a, currency: a?.currency || currency };
+  const stamp = <T extends { currency?: string }>(x: T): T => (x && !x.currency ? { ...x, currency } : x);
+
   const d: Data = {
     ...blank(),
     ...r,
     goals,
-    debts: Array.isArray(r.debts) ? r.debts : [],
-    gifts: Array.isArray(r.gifts) ? r.gifts : [],
+    debts: Array.isArray(r.debts) ? r.debts.map(stamp) : [],
+    gifts: Array.isArray(r.gifts) ? r.gifts.map(stamp) : [],
     assets: { ...blankAssets(currency), ...(r.assets || {}) },
-    accounts: r.accounts || {},
+    accounts,
     settings
   };
   if (linked) d.notice = 'goalsMigrated';

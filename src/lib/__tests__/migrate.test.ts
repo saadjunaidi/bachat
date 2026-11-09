@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mergeData } from '../backup';
+import { foreignCurrencies } from '../fx';
 import { blank, kindOf, migrate } from '../types';
 
 const v1 = () => ({
@@ -47,5 +48,12 @@ describe('migrate', () => {
     const { data } = mergeData(blank(), b as any);
     expect(data.goals[0].price).toBe(500000);
     expect(data.goals[0].saved).toBe(100);
+  });
+
+  it('stamps missing account currency with the settings currency', () => {
+    const d = migrate({ accounts: { HDFC: { name: 'HDFC' } }, txns: [] });
+    expect(d.accounts.HDFC.currency).toBe('INR');
+    const usd = { ...d, settings: { ...d.settings, currency: 'USD' } };
+    expect(foreignCurrencies(usd)).toEqual(['INR']);
   });
 });

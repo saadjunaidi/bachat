@@ -46,7 +46,7 @@ export function sampleData(): Data {
     bal[e.acct] += e.amt;
     s.txns.push({ id: `${e.acct}|${e.date}|${e.amt}|sample${i}`, acct: e.acct, date: e.date, desc: e.desc, amt: e.amt, bal: Math.round(bal[e.acct] * 100) / 100, seq: i });
   });
-  s.accounts = { 'HDFC Savings': { name: 'HDFC Savings' }, 'Kotak Savings': { name: 'Kotak Savings' } };
+  s.accounts = { 'HDFC Savings': { name: 'HDFC Savings', kind: 'bank', currency: 'INR' }, 'Kotak Savings': { name: 'Kotak Savings', kind: 'bank', currency: 'INR' } };
   const y = now.getFullYear();
   s.goals = [
     { id: 'g1', name: '₹50 lakh savings', price: 5000000, currency: 'INR', date: `${y + 1}-06`, saved: 0, ret: 7, stretchChoice: 'wait' },

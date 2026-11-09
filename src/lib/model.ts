@@ -38,7 +38,9 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
     const v = toView(t.amt, cur, fx, t.date.slice(0, 7));
     if (v == null) { missing.add(cur); continue; }
     const p = payee(t.desc);
-    const c = catOf(t, p, d);
+    let c = catOf(t, p, d);
+    // Money into a card is a payment from the bank side (already counted there), unless it is a refund.
+    if (kindOf(d.accounts[t.acct]) === 'card' && t.amt > 0 && !d.overrides[t.id] && !d.rules[p.toLowerCase()] && c !== 'Refunds & cashback') c = 'Credit card bill';
     A.push({ ...t, amt: v, payee: p, cat: c, type: kindOf(d.accounts[t.acct]) === 'loan' ? 'transfer' : CTYPE[c] || 'expense', m: t.date.slice(0, 7), orig: cur === view ? null : { amt: t.amt, cur } });
   }
   A.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));

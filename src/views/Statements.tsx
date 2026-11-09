@@ -64,7 +64,7 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
     const r = commit(data, name, ex.rows, { kind, currency: cur });
     setData(() => ({ ...r.data, mappings: { ...r.data.mappings, [p.sig]: { map, acct: name, kind, currency: cur } } }));
     toast(`${name}: ${r.added} added${r.dup ? ', ' + r.dup + ' already imported' : ''}${data.sample ? ' · sample data cleared' : ''}`);
-    const nd = kind === 'bank' ? undefined : r.data.debts.find((x) => x.acct === name);
+    const nd = kind === 'bank' || data.debts.some((x) => x.acct === name) ? undefined : r.data.debts.find((x) => x.acct === name);
     if (nd && (!nd.apr || !nd.minPay)) { setUi({ editDebt: nd.id }); nav('debts'); }
     else onDone();
   };
@@ -100,7 +100,7 @@ function Mapper({ p, onCancel, onDone }: { p: Parsed; onCancel: () => void; onDo
       <div className="scroll"><table>
         <thead><tr><th>Date</th><th>Description</th><th className="r">Amount</th><th className="r">Balance</th></tr></thead>
         <tbody>{prev.length ? prev.map((r, i) => (
-          <tr key={i}><td>{dlong(r.date)}</td><td>{r.desc}</td><td className={'r ' + (r.amt > 0 ? 'up' : '')}>{r.amt > 0 ? '+' : '−'}{money(Math.abs(r.amt))}</td><td className="r">{r.bal != null ? money(r.bal) : '–'}</td></tr>
+          <tr key={i}><td>{dlong(r.date)}</td><td>{r.desc}</td><td className={'r ' + (r.amt > 0 ? 'up' : '')}>{r.amt > 0 ? '+' : '−'}{money(Math.abs(r.amt), cur)}</td><td className="r">{r.bal != null ? money(r.bal, cur) : '–'}</td></tr>
         )) : <tr><td colSpan={4}>No transactions found with these columns. Check the choices above.</td></tr>}</tbody>
       </table></div>
       <div className="formactions"><button className="btn" disabled={!ex.rows.length || !acct.trim()} onClick={go}>Import {ex.rows.length} transactions</button></div>

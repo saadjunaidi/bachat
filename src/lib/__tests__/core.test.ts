@@ -95,6 +95,24 @@ describe('import', () => {
     expect(b.data.debts[0].balance).toBe(70000);
     expect(b.data.debts[0].asOf).toBe('2026-11-02');
   });
+  it('does not roll a debt back with an older statement, and handles negative-for-owed balances', () => {
+    const m = { kind: 'card' as const, currency: 'INR' };
+    const a = commit(blank(), 'C', [{ date: '2026-10-30', desc: 'X', amt: -5, bal: 70000 }], m);
+    const b = commit(a.data, 'C', [{ date: '2026-09-30', desc: 'Y', amt: -5, bal: 50000 }], m);
+    expect(b.data.debts[0].balance).toBe(70000);
+    const n = commit(blank(), 'N', [{ date: '2026-10-01', desc: 'A', amt: -60, bal: -60 }, { date: '2026-10-02', desc: 'B', amt: -100.49, bal: -160.49 }], m);
+    expect(n.data.debts[0].balance).toBe(160.49);
+  });
+  it('keeps assets when importing over sample data', () => {
+    const d = { ...blank(), sample: true, assets: { ...blank().assets, goldG: 10 } };
+    expect(commit(d, 'A', [{ date: '2026-10-01', desc: 'X', amt: -1, bal: null }]).data.assets.goldG).toBe(10);
+  });
+  it('card payments are transfers, not income', () => {
+    const d = commit(blank(), 'V', [{ date: '2026-10-01', desc: 'SHOP', amt: -120.5, bal: null }, { date: '2026-10-02', desc: 'PAYMENT RECEIVED - THANK YOU', amt: 500, bal: null }], { kind: 'card', currency: 'INR' }).data;
+    const M = build(d);
+    expect(M.MO['2026-10'].inc).toBe(0);
+    expect(M.MO['2026-10'].exp).toBe(120.5);
+  });
   it('loan account transactions are transfers and do not change spending', () => {
     const rows = [{ date: '2026-10-05', desc: 'EMI DEBIT', amt: -9000, bal: 100000 }];
     const d = commit(blank(), 'Car loan', rows, { kind: 'loan', currency: 'INR' }).data;

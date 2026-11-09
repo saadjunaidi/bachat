@@ -1,4 +1,4 @@
-import type { CatType, Data, Txn } from './types';
+import type { CatType, Data, Settings, Txn } from './types';
 
 export const CATS: [string, CatType][] = [
   ['Salary', 'income'], ['Business income', 'income'], ['Interest & dividends', 'income'], ['Refunds & cashback', 'income'], ['Other income', 'income'],
@@ -107,4 +107,15 @@ export function autoCat(desc: string, amt: number, selfName = ''): string {
 
 export function catOf(t: Txn, p: string, d: Data): string {
   return d.overrides[t.id] || d.rules[p.toLowerCase()] || autoCat(t.desc, t.amt, d.settings.selfName);
+}
+
+export const NEEDS_DEFAULT: Set<string> = new Set([
+  'Rent & housing', 'Groceries', 'Bills & utilities', 'Mobile & internet', 'Transport', 'Fuel & vehicle',
+  'Health', 'Insurance', 'Education', 'Family support', 'Fees & charges', 'Taxes'
+]);
+
+/** Loan EMI and Donations are planned separately, so are never needs. */
+export function isNeed(cat: string, s: Settings): boolean {
+  if (cat === 'Loan EMI' || cat === 'Donations') return false;
+  return s.needs[cat] ?? NEEDS_DEFAULT.has(cat);
 }

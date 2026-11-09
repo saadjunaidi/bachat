@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest';
+import { build } from '../model';
+import { EMPTY_FX, type Fx } from '../fx';
+import { blank, type Data, type Txn } from '../types';
+
+let n = 0;
+const tx = (acct: string, date: string, desc: string, amt: number, bal: number | null = null): Txn => ({ id: 't' + ++n, acct, date, desc, amt, bal, seq: n });
+const data = (view = 'PKR'): Data => { const d = blank(); d.settings.currency = view; d.assets.currency = view; return d; };
+const fxOf = (view: string, month: Record<string, number>, today: Record<string, number>): Fx => ({
+  ...EMPTY_FX(view),
+  today: { base: view, date: '2026-11-09', r: today },
+  months: { '2026-10': { base: view, date: '2026-10-01', r: month } }
+});
+
+function mixed(): Data {
+  const d = data();
+  d.accounts = { PK: { name: 'PK', currency: 'PKR' }, US: { name: 'US', currency: 'USD' } };
+  d.txns = [tx('PK', '2026-10-02', 'SALARY', 300000, 300000), tx('US', '2026-10-05', 'AMAZON', -100, 1000)];
+  return d;
+}
+
+describe('model currency', () => {
+  const fx = fxOf('PKR', { USD: 0.0036 }, { USD: 0.0035 });
+  it('converts txns at month rate and balances at today rate', () => {
+    const M = build(mixed(), fx);
+    expect(M.MO['2026-10'].exp).toBeCloseTo(27777.78, 1);
+    expect(M.A.find((t) => t.orig)?.orig).toEqual({ amt: -100, cur: 'USD' });
+    expect(M.bankBal).toBeCloseTo(300000 + 285714.29, 1);
+    expect(M.fxMissing).toEqual([]);
+  });
+  it('drops txns without a rate and reports the currency', () => {
+    const M = build(mixed(), EMPTY_FX('PKR'));
+    expect(M.fxMissing).toEqual(['USD']);
+    expect(M.MO['2026-10'].exp).toBe(0);
+  });
+  it('does not mutate data when the view currency changes', () => {
+    const d = mixed();
+    const snap = JSON.stringify(d);
+    const usd: Fx = { ...EMPTY_FX('USD'), today: { base: 'USD', date: 'x', r: { PKR: 285 } }, months: { '2026-10': { base: 'USD', date: 'x', r: { PKR: 280 } } } };
+    const M = build(d, usd);
+    expect(M.MO['2026-10'].exp).toBe(100);
+    expect(M.MO['2026-10'].inc).toBeCloseTo(300000 / 280, 5);
+    expect(JSON.stringify(d)).toBe(snap);
+  });
+});
+
+describe('model kinds', () => {
+  it('counts a card purchase once', () => {
+    const d = data();
+    d.accounts = { Bank: { name: 'Bank' }, Card: { name: 'Card', kind: 'card' } };
+    d.txns = [tx('Card', '2026-10-03', 'AMAZON', -5000), tx('Bank', '2026-10-10', 'CREDIT CARD PAYMENT', -5000, 100)];
+    const M = build(d);
+    expect(M.MO['2026-10'].exp).toBe(5000);
+    expect(M.MO['2026-10'].cats['Shopping']).toBe(5000);
+  });
+  it('ignores loan accounts for completeness', () => {
+    const d = data();
+    d.accounts = { Bank: { name: 'Bank' }, Loan: { name: 'Loan', kind: 'loan' } };
+    d.txns = [tx('Bank', '2026-05-10', 'SALARY', 1000, 1000), tx('Bank', '2026-10-28', 'SALARY', 1000, 2000), tx('Loan', '2026-05-12', 'EMI', -10)];
+    const M = build(d);
+    expect(M.isComplete('2026-10')).toBe(true);
+    expect(M.end).toBe('2026-10-28');
+  });
+});
+
+describe('model needs and EMI', () => {
+  const base = () => {
+    const d = data();
+    d.accounts = { Bank: { name: 'Bank' } };
+    d.txns = [tx('Bank', '2026-09-03', 'HOUSE RENT', -42000), tx('Bank', '2026-09-04', 'AMAZON', -10000), tx('Bank', '2026-09-05', 'EMI', -7000), tx('Bank', '2026-10-20', 'SALARY', 100000, 1)];
+    return d;
+  };
+  it('splits needs', () => {
+    expect(build(base()).needs['2026-09']).toBe(42000);
+    const d = base(); d.settings.needs = { Shopping: true };
+    expect(build(d).needs['2026-09']).toBe(52000);
+    const e = base(); e.settings.needs = { 'Loan EMI': true };
+    expect(build(e).needs['2026-09']).toBe(42000);
+  });
+  it('averages EMI and spend ex EMI', () => {
+    const M = build(base());
+    expect(M.a3.months).toEqual(['2026-09']);
+    expect(M.a3.emi).toBe(7000);
+    expect(M.a3.spendExEmi).toBe(M.a3.exp - 7000);
+    expect(M.a3.needs).toBe(42000);
+  });
+});
+
+describe('net worth', () => {
+  it('adds assets and subtracts debts', () => {
+    const d = data();
+    d.accounts = { Bank: { name: 'Bank' } };
+    d.txns = [tx('Bank', '2026-10-02', 'SALARY', 1000, 50000)];
+    d.assets.investments = 100000; d.assets.goldG = 10; d.settings.goldPrice = 7000;
+    d.debts = [{ id: 'd', name: 'x', kind: 'loan', currency: 'PKR', balance: 20000, asOf: '2026-10-01', apr: 0, minPay: 0, revolving: false }];
+    const M = build(d);
+    expect(M.netWorth).toBe(M.bankBal + 170000 - 20000);
+    expect(M.bankBal).toBe(50000);
+  });
+});

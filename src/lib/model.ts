@@ -1,8 +1,10 @@
-import { CTYPE, catOf, payee } from './categories';
+import { CTYPE, catOf, isNeed, payee } from './categories';
 import { addM, pct, short } from './format';
+import { EMPTY_FX, toView, type Fx } from './fx';
 import type { CatType, Data, Txn } from './types';
+import { kindOf } from './types';
 
-export interface ATxn extends Txn { payee: string; cat: string; type: CatType; m: string }
+export interface ATxn extends Txn { payee: string; cat: string; type: CatType; m: string; orig: { amt: number; cur: string } | null }
 export interface MonthAgg { m: string; inc: number; exp: number; inv: number; cats: Record<string, number>; n: number; saved: number; rate: number }
 export interface Account { name: string; n: number; first: string; last: string; bal: number | null; balDate: string | null; list: ATxn[] }
 export interface Model {
@@ -10,7 +12,7 @@ export interface Model {
   MO: Record<string, MonthAgg>;
   months: string[];
   complete: string[];
-  a3: { inc: number; exp: number; saved: number; inv: number; rate: number; months: string[] };
+  a3: { inc: number; exp: number; saved: number; inv: number; rate: number; months: string[]; needs: number; emi: number; spendExEmi: number };
   acc: Record<string, Account>;
   names: string[];
   end: string | null;
@@ -18,12 +20,28 @@ export interface Model {
   totalBal: number;
   hasBal: boolean;
   trend: (number | null)[];
+  fxMissing: string[];
+  needs: Record<string, number>;
+  bankBal: number;
+  debtTotal: number;
+  assetsTotal: number;
+  netWorth: number;
 }
 
-export function build(d: Data): Model {
-  const A: ATxn[] = d.txns
-    .map((t) => { const p = payee(t.desc); const c = catOf(t, p, d); return { ...t, payee: p, cat: c, type: CTYPE[c] || 'expense', m: t.date.slice(0, 7) }; })
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));
+export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
+  const view = fx.view;
+  const missing = new Set<string>();
+  const curOf = (name: string) => d.accounts[name]?.currency || view;
+  const A: ATxn[] = [];
+  for (const t of d.txns) {
+    const cur = curOf(t.acct);
+    const v = toView(t.amt, cur, fx, t.date.slice(0, 7));
+    if (v == null) { missing.add(cur); continue; }
+    const p = payee(t.desc);
+    const c = catOf(t, p, d);
+    A.push({ ...t, amt: v, payee: p, cat: c, type: CTYPE[c] || 'expense', m: t.date.slice(0, 7), orig: cur === view ? null : { amt: t.amt, cur } });
+  }
+  A.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq));
 
   const MO: Record<string, MonthAgg> = {};
   const blankM = (m: string): MonthAgg => ({ m, inc: 0, exp: 0, inv: 0, cats: {}, n: 0, saved: 0, rate: NaN });
@@ -46,31 +64,54 @@ export function build(d: Data): Model {
   for (const t of A) {
     const a = acc[t.acct] || (acc[t.acct] = { name: t.acct, n: 0, first: t.date, last: t.date, bal: null, balDate: null, list: [] });
     a.n++; a.last = t.date; a.list.push(t);
-    if (t.bal != null) { a.bal = t.bal; a.balDate = t.date; }
+    if (t.bal != null) {
+      const b = toView(t.bal, curOf(t.acct), fx);
+      if (b == null) missing.add(curOf(t.acct));
+      else { a.bal = b; a.balDate = t.date; t.bal = b; }
+    }
   }
   const names = Object.keys(acc);
   // Data is only as current as the account with the oldest latest-transaction.
-  const end = names.length ? names.map((n) => acc[n].last).sort()[0] : null;
+  const isBank = (n: string) => kindOf(d.accounts[n]) === 'bank';
+  const banks = names.filter(isBank);
+  const gate = banks.length ? banks : names;
+  const end = gate.length ? gate.map((n) => acc[n].last).sort()[0] : null;
   const endM = end ? end.slice(0, 7) : null;
   const endDay = end ? +end.slice(8) : 0;
   const isComplete = (m: string) => !!endM && (m < endM || (m === endM && endDay >= 25));
   const complete = months.filter(isComplete);
   const last3 = complete.slice(-3);
   const avg = (k: 'inc' | 'exp' | 'saved' | 'inv') => (last3.length ? last3.reduce((s, m) => s + MO[m][k], 0) / last3.length : 0);
-  const a3 = { inc: avg('inc'), exp: avg('exp'), saved: avg('saved'), inv: avg('inv'), rate: NaN, months: last3 };
+  const needs: Record<string, number> = {};
+  for (const m of months) needs[m] = 0;
+  for (const t of A) if (t.type === 'expense' && isNeed(t.cat, d.settings)) needs[t.m] += -t.amt;
+  const avgOf = (f: (m: string) => number) => (last3.length ? last3.reduce((s, m) => s + f(m), 0) / last3.length : 0);
+  const a3 = { inc: avg('inc'), exp: avg('exp'), saved: avg('saved'), inv: avg('inv'), rate: NaN, months: last3, needs: avgOf((m) => needs[m]), emi: avgOf((m) => MO[m].cats['Loan EMI'] || 0), spendExEmi: 0 };
+  a3.spendExEmi = a3.exp - a3.emi;
   a3.rate = a3.inc > 0 ? a3.saved / a3.inc : NaN;
-  const totalBal = names.reduce((s, n) => s + (acc[n].bal || 0), 0);
+  const totalBal = banks.reduce((s, n) => s + (acc[n].bal || 0), 0);
   const hasBal = names.some((n) => acc[n].bal != null);
   const trend = months.map((m) => {
     let s = 0, any = false;
-    for (const n of names) {
+    for (const n of banks) {
       let b: number | null = null;
       for (const t of acc[n].list) { if (t.m > m) break; if (t.bal != null) b = t.bal; }
       if (b != null) { s += b; any = true; }
     }
     return any ? s : null;
   });
-  return { A, MO, months, complete, a3, acc, names, end, isComplete, totalBal, hasBal, trend };
+  const conv = (amt: number, cur: string) => {
+    const v = toView(amt, cur, fx);
+    if (v == null) { missing.add(cur); return 0; }
+    return v;
+  };
+  const debtTotal = d.debts.reduce((s, x) => s + conv(x.balance, x.currency || view), 0);
+  const as = d.assets;
+  const assetsTotal = conv(as.investments + as.owed + as.stock + as.other, as.currency || view)
+    + as.goldG * d.settings.goldPrice + as.silverG * d.settings.silverPrice;
+  const bankBal = totalBal;
+  const netWorth = bankBal + assetsTotal - debtTotal;
+  return { A, MO, months, complete, a3, acc, names, end, isComplete, totalBal, hasBal, trend, fxMissing: [...missing].sort(), needs, bankBal, debtTotal, assetsTotal, netWorth };
 }
 
 export function defaultMonth(M: Model, chosen: string | null): string | null {

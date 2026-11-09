@@ -47,6 +47,24 @@ describe('debt payoff', () => {
     expect(e.payments[0]).toBeCloseTo(250);
     expect(e.payments.reduce((s, x) => s + x, 0)).toBeCloseTo(4000);
   });
+  it('capped final payment: unused budget goes to the next target the same month', () => {
+    const a: PayDebt = { id: 'a', name: 'A', kind: 'loan', balance: 950, apr: 0, minPay: 100 };
+    const b: PayDebt = { id: 'b', name: 'B', kind: 'loan', balance: 3000, apr: 0, minPay: 100 };
+    const r = payoff([a, b], 'avalanche', 0);
+    expect(r.order).toEqual([{ id: 'a', month: 10 }, { id: 'b', month: 20 }]);
+    expect(r.months).toBe(20);
+    r.payments.slice(0, -1).forEach((p) => expect(p).toBeCloseTo(200));
+    expect(r.payments[19]).toBeCloseTo(150);
+    expect(r.payments.reduce((x, y) => x + y, 0)).toBeCloseTo(3950);
+  });
+  it('declining card minimum keeps total outlay constant', () => {
+    const card: PayDebt = { id: 'c', name: 'C', kind: 'card', balance: 10000, apr: 0, minPay: 0, minPct: 5 };
+    const l: PayDebt = { id: 'l', name: 'L', kind: 'loan', balance: 5000, apr: 0, minPay: 500 };
+    const r = payoff([card, l], 'snowball', 0);
+    expect(Number.isFinite(r.months)).toBe(true);
+    r.payments.slice(0, -1).forEach((p) => expect(p).toBeCloseTo(1000));
+    expect(r.payments.reduce((x, y) => x + y, 0)).toBeCloseTo(15000);
+  });
   it('minPayment', () => {
     const c: PayDebt = { id: 'c', name: 'C', kind: 'card', balance: 0, apr: 30, minPay: 200, minPct: 5 };
     expect(minPayment(c, 1000)).toBe(200);

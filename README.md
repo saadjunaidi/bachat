@@ -4,7 +4,10 @@ Import bank statements, see where your money goes, and plan savings goals. Insta
 
 - **Overview**: money in vs. out (12 months) with savings rate, spending by category, biggest payees, total balance trend, automatic insights
 - **Spending**: categories vs. 3-month average, searchable transactions, tap to re-categorise (optionally for every payment to that payee)
-- **Goals**: target + date → monthly saving needed, on-track status, projected date; financial-freedom number and years to reach it
+- **Goals**: short-term goals with a good / stretch / bad verdict (can you afford it by the date, or by waiting, or by slowing your long-term goal), plus a long-term goal (financial freedom or retirement) with target number, projected date and on-track status
+- **Debts**: cards and loans with balance, APR and minimums; payoff plan (avalanche or snowball), debt-free date and interest saved with an extra amount
+- **Giving**: log donations, optional Islamic guidance (zakat on nisab, planned monthly giving, impact), shown only when switched on
+- **Currencies**: accounts, debts, goals, gifts and assets can each be in their own currency, converted to your view currency; rates are fetched only when a second currency is in use
 - **Statements**: Excel/CSV upload or paste, automatic header and column detection, remembers each bank's layout, skips already-imported transactions, backup file / share / code with restore and merge
 
 ## Tech

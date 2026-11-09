@@ -1,5 +1,5 @@
 import { blank, type Data } from './types';
-import { iso, MN } from './format';
+import { addM, iso, MN, thisMonth } from './format';
 
 /** Realistic, clearly-labelled demo data so the first view shows what the app does. */
 export function sampleData(): Data {
@@ -13,15 +13,22 @@ export function sampleData(): Data {
   const bal: Record<string, number> = { 'HDFC Savings': 640000, 'Kotak Savings': 1180000 };
   const ev: { acct: string; date: string; desc: string; amt: number }[] = [];
   const now = new Date();
+  let prevCard = ri(24000, 31000); // last month's card spend, paid early next month
   // Six full months ending last month
   for (let k = 6; k >= 1; k--) {
     const ref = new Date(now.getFullYear(), now.getMonth() - k, 1);
     const y = ref.getFullYear(), mo = ref.getMonth();
     const E = (acct: string, day: number, desc: string, amt: number) => ev.push({ acct, date: iso(new Date(y, mo, Math.min(day, 28))), desc, amt });
     const M = MN[mo].toUpperCase();
-    E('HDFC Savings', 1, `NEFT CR-ACME TECHNOLOGIES PVT LTD-SALARY ${M}${String(y).slice(2)}`, 185000);
+    E('HDFC Savings', 1, `NEFT CR-ACME TECHNOLOGIES PVT LTD-SALARY ${M}${String(y).slice(2)}`, 270000);
     E('HDFC Savings', 2, `UPI/HOUSE RENT ${M}/rkverma@okaxis/Sent using`, -42000);
     E('HDFC Savings', 5, 'ACH D- ICICI PRU MF SIP', -25000);
+    E('HDFC Savings', 7, 'EMI CAR LOAN HDFC BANK 4521', -14200);
+    E('HDFC Savings', 8, 'CREDIT CARD PAYMENT HDFC CARD', -prevCard);
+    E('HDFC Credit Card', 8, 'PAYMENT RECEIVED THANK YOU', prevCard);
+    let card = 0;
+    for (let n = ri(8, 12); n--;) { const a = ri(400, 4200); card += a; E('HDFC Credit Card', ri(1, 28), pick(['AMAZON PAY INDIA', 'SWIGGY', 'ZOMATO', 'BIGBASKET', 'MYNTRA', 'UBER INDIA', 'BOOKMYSHOW', 'DMART']), -a); }
+    prevCard = card;
     E('HDFC Savings', 12, 'BIL/BPAY/BSES RAJDHANI ELECTRICITY', -ri(2200, 5400));
     E('HDFC Savings', 14, 'UPI/AIRTEL POSTPAID/airtel@ybl/Sent using', -999);
     E('HDFC Savings', 16, 'POS 4521XXXX NETFLIX.COM', -649);
@@ -43,14 +50,33 @@ export function sampleData(): Data {
   }
   ev.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   ev.forEach((e, i) => {
-    bal[e.acct] += e.amt;
-    s.txns.push({ id: `${e.acct}|${e.date}|${e.amt}|sample${i}`, acct: e.acct, date: e.date, desc: e.desc, amt: e.amt, bal: Math.round(bal[e.acct] * 100) / 100, seq: i });
+    const isCard = e.acct === 'HDFC Credit Card';
+    if (!isCard) bal[e.acct] += e.amt;
+    s.txns.push({ id: `${e.acct}|${e.date}|${e.amt}|sample${i}`, acct: e.acct, date: e.date, desc: e.desc, amt: e.amt, bal: isCard ? null : Math.round(bal[e.acct] * 100) / 100, seq: i });
   });
-  s.accounts = { 'HDFC Savings': { name: 'HDFC Savings', kind: 'bank', currency: 'INR' }, 'Kotak Savings': { name: 'Kotak Savings', kind: 'bank', currency: 'INR' } };
-  const y = now.getFullYear();
+  s.accounts = {
+    'HDFC Savings': { name: 'HDFC Savings', kind: 'bank', currency: 'INR' },
+    'Kotak Savings': { name: 'Kotak Savings', kind: 'bank', currency: 'INR' },
+    'HDFC Credit Card': { name: 'HDFC Credit Card', kind: 'card', currency: 'INR' }
+  };
+  const today = iso(now);
+  const cm = thisMonth();
+  s.debts = [
+    { id: 'd1', name: 'HDFC Credit Card', kind: 'card', acct: 'HDFC Credit Card', currency: 'INR', balance: 68000, asOf: today, apr: 42, minPay: 3400, revolving: true },
+    { id: 'd2', name: 'Car loan', kind: 'loan', currency: 'INR', balance: 472000, asOf: today, apr: 9.5, minPay: 14200, revolving: false }
+  ];
   s.goals = [
-    { id: 'g1', name: '₹50 lakh savings', price: 5000000, currency: 'INR', date: `${y + 1}-06`, saved: 0, ret: 7, stretchChoice: 'wait' },
-    { id: 'g2', name: 'Car down payment', price: 400000, currency: 'INR', date: `${y + 1}-12`, saved: 60000, ret: 7, stretchChoice: 'wait' }
+    { id: 'g1', name: 'New phone', price: 150000, currency: 'INR', date: addM(cm, 12), saved: 0, ret: 7, stretchChoice: 'wait' },
+    { id: 'g2', name: 'Umrah', price: 400000, currency: 'INR', date: addM(cm, 4), saved: 0, ret: 7, stretchChoice: 'wait' },
+    { id: 'g3', name: 'Luxury car', price: 5000000, currency: 'INR', date: addM(cm, 13), saved: 0, ret: 7, stretchChoice: 'wait' }
+  ];
+  s.settings.longTerm = { ...s.settings.longTerm, type: 'freedom', targetAge: 50 };
+  s.settings.goldPrice = 7750;
+  s.settings.silverPrice = 90;
+  s.assets = { ...s.assets, currency: 'INR', goldG: 40, investments: 200000 };
+  s.gifts = [
+    { id: 'gf1', date: `${cm}-02`, amount: 20000, currency: 'INR', kind: 'sadaqah' },
+    { id: 'gf2', date: `${addM(cm, -1)}-15`, amount: 2500, currency: 'INR', kind: 'charity' }
   ];
   return s;
 }

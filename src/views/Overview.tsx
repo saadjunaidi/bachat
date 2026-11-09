@@ -20,6 +20,8 @@ export function Overview() {
   const partial = !M.isComplete(m);
   const lt = P.longTerm;
   const ltName = data.settings.longTerm.type === 'retirement' ? 'Retirement' : 'Financial freedom';
+  const debtLine = P.lines.find((l) => l.key === 'debt');
+  const ltLine = P.lines.find((l) => l.key === 'longTerm');
   const hasDebts = data.debts.some((d) => d.balance > 0);
   const owned = M.bankBal + M.assetsTotal;
   const pillCls = lt.status === 'behind' ? 'bad' : 'good';
@@ -38,11 +40,20 @@ export function Overview() {
             : 'Yours to enjoy. Goals, debts and giving are already covered.'}</span>
           {P.ready && <Explain><p>{P.explain}</p>{P.lines.map((l) => <p key={l.key}><b>{l.label}:</b> {l.explain}</p>)}</Explain>}
         </>} />
-        <Kpi label="Net worth" value={short(M.netWorth)} sub={<span className="small muted">{short(owned)} owned − {short(M.debtTotal)} owed</span>} />
-        {hasDebts && <Kpi label="Debt-free by" value={P.debtFree ? mlabel(P.debtFree) : 'Never at minimums'} sub={<button className="linkbtn small" onClick={() => go('debts')}>See the plan</button>} />}
+        <Kpi label="Net worth" value={short(M.netWorth)} sub={<>
+          <span className="small muted">{short(owned)} owned − {short(M.debtTotal)} owed</span>
+          <Explain><p>Bank balances {short(M.bankBal)} + other assets {short(M.assetsTotal)} − debts {short(M.debtTotal)} = {short(M.netWorth)}.</p></Explain>
+        </>} />
+        {hasDebts && <Kpi label="Debt-free by" value={P.debtFree ? mlabel(P.debtFree) : 'Never at minimums'} sub={<>
+          <button className="linkbtn small" onClick={() => go('debts')}>See the plan</button>
+          <Explain><p>{debtLine?.explain}</p><p>Strategy: {data.settings.strategy === 'snowball' ? 'smallest balance first' : 'highest interest first'}.</p></Explain>
+        </>} />}
         <Kpi label={ltName} value={lt.projected ? lt.projected.slice(0, 4) : '–'} sub={lt.status === 'needAge'
           ? <button className="linkbtn small" onClick={() => go('goals')}>Set your age on Goals</button>
-          : <span><span className={'pill ' + pillCls}>{pillTxt}</span></span>} />
+          : <>
+            <span><span className={'pill ' + pillCls}>{pillTxt}</span></span>
+            <Explain><p>{ltLine?.explain}</p>{lt.targetMonth && <p>Target month: {mlabel(lt.targetMonth)}.</p>}</Explain>
+          </>} />
       </div>
       <div className="grid kpis">
         <Kpi label="Saved" value={short(o.saved)} sub={<span className="small muted">{isFinite(o.rate) ? pct(o.rate) + ' of income' : 'No income this month'}</span>} />

@@ -232,3 +232,25 @@ describe('finance', () => {
     expect(money(185000)).toBe('₹1,85,000');
   });
 });
+
+describe('sample data', () => {
+  it('fills every new screen with a ready plan', async () => {
+    const { sampleData } = await import('../sample');
+    const { plan } = await import('../plan');
+    const { EMPTY_FX } = await import('../fx');
+    const { addM, thisMonth } = await import('../format');
+    const d = sampleData();
+    const M = build(d);
+    const now = addM(M.months[M.months.length - 1], 1); // sample ends last month, so now is the month after
+    expect(now).toBe(thisMonth());
+    const P = plan(d, M, EMPTY_FX('INR'), now);
+    expect(d.sample).toBe(true);
+    expect(P.ready).toBe(true);
+    expect(P.guiltFree).toBeGreaterThan(0);
+    expect(P.debtFree).not.toBeNull();
+    const v = (n: string) => P.goals.find((r) => r.id === d.goals.find((g) => g.name === n)!.id)!.verdict;
+    expect(v('New phone')).toBe('good');
+    expect(v('Umrah')).toBe('stretch');
+    expect(v('Luxury car')).toBe('bad');
+  });
+});

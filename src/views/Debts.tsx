@@ -188,7 +188,9 @@ export function Debts() {
               {cmp.chosen.order.map((o) => <li key={o.id}>Clear {nameOf(o.id)} by {mlabel(addM(now, o.month))}</li>)}
             </ol>
             {cmp.chosen.never.length === 0 && !Number.isFinite(cmp.chosen.months) && <p className="small muted">Some debts do not clear within 50 years at this payment.</p>}
-            <p><b>{Number.isNaN(cmp.interestSaved) ? 'Paying only minimums never clears this debt' : `You save ${money(cmp.interestSaved)} in interest`}</b></p>
+            {Number.isNaN(cmp.interestSaved) ? <p><b>Paying only minimums never clears this debt</b></p>
+              : cmp.interestSaved > 0 && st.extra > 0 ? <p><b>{`You save ${money(cmp.interestSaved)} in interest`}</b></p>
+                : <p className="small muted">Add an extra amount to see how much interest you'd save.</p>}
             {earlier > 0 && <p><b>{ltName} moves {earlier} {earlier === 1 ? 'month' : 'months'} earlier</b></p>}
             <Explain>
               <p>{st.strategy === 'avalanche' ? 'Highest interest first: every minimum is paid, then all the extra goes to the debt with the highest APR. Cleared debts free up their payment for the next one.' : 'Smallest balance first: every minimum is paid, then all the extra goes to the smallest balance. Cleared debts free up their payment for the next one.'}</p>

@@ -71,6 +71,22 @@ describe('verdicts', () => {
     expect(r.ltCut(1)).toBe(0);
   });
 
+  it('good when buying on time does not move the long-term date (funded from the reserve)', () => {
+    // n = 4: need = 400000 / 4 = 100000, remaining 30000 → cut 70000 for months 1..4; ltSlip 0 → good.
+    const r = assessGoals([goal({ price: 400000, date: '2027-03' })], 30000, 100000, 0, NOW, () => 0, FX);
+    const g = r.results[0];
+    expect(g.verdict).toBe('good');
+    expect(g.monthly).toBe(100000);
+    expect(g.onTimeSlip).toBe(0);
+    expect(g.waitDate).toBeNull();
+    expect(g.reason).toContain('₹70K/mo of that comes from your');
+    expect(r.ltCut(1)).toBe(70000);
+    expect(r.ltCut(4)).toBe(70000);
+    expect(r.ltCut(5)).toBe(0);
+    // 30000 from free money + 70000 from the reserve = 100000 a month.
+    expect(r.used).toBe(30000);
+  });
+
   it('stretch by waiting: 10 more months makes it fit', () => {
     // n = 4: need = 400000 / 4 = 100000 > 30000.
     // wait k = 9: 400000 / 13 = 30769 > 30000; k = 10: 400000 / 14 = 28571.43 ≤ 30000 → k = 10.

@@ -20,7 +20,7 @@ export function sampleData(): Data {
     const y = ref.getFullYear(), mo = ref.getMonth();
     const E = (acct: string, day: number, desc: string, amt: number) => ev.push({ acct, date: iso(new Date(y, mo, Math.min(day, 28))), desc, amt });
     const M = MN[mo].toUpperCase();
-    E('HDFC Savings', 1, `NEFT CR-ACME TECHNOLOGIES PVT LTD-SALARY ${M}${String(y).slice(2)}`, 270000);
+    E('HDFC Savings', 1, `NEFT CR-ACME TECHNOLOGIES PVT LTD-SALARY ${M}${String(y).slice(2)}`, 290000);
     E('HDFC Savings', 2, `UPI/HOUSE RENT ${M}/rkverma@okaxis/Sent using`, -42000);
     E('HDFC Savings', 5, 'ACH D- ICICI PRU MF SIP', -25000);
     E('HDFC Savings', 7, 'EMI CAR LOAN HDFC BANK 4521', -14200);
@@ -67,7 +67,7 @@ export function sampleData(): Data {
   ];
   s.goals = [
     { id: 'g1', name: 'New phone', price: 150000, currency: 'INR', date: addM(cm, 12), saved: 0, ret: 7, stretchChoice: 'wait' },
-    { id: 'g2', name: 'Umrah', price: 400000, currency: 'INR', date: addM(cm, 4), saved: 0, ret: 7, stretchChoice: 'wait' },
+    { id: 'g2', name: 'Umrah', price: 500000, currency: 'INR', date: addM(cm, 4), saved: 0, ret: 7, stretchChoice: 'wait' },
     { id: 'g3', name: 'Luxury car', price: 5000000, currency: 'INR', date: addM(cm, 13), saved: 0, ret: 7, stretchChoice: 'wait' }
   ];
   s.settings.longTerm = { ...s.settings.longTerm, type: 'freedom', targetAge: 50 };

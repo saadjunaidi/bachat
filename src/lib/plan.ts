@@ -157,6 +157,19 @@ export function assessGoals(goals: ShortGoal[], avail: number, income: number, i
       continue;
     }
 
+    // On time costs the long-term goal nothing (its date does not move): that is a good goal, funded partly from the reserve.
+    const cut0 = need - remaining;
+    if (!noIncome && incomeMultiple < BAD_INCOME_MULTIPLE && ltSlip(cut0, n, ltCut) === 0) {
+      cuts.push({ amt: cut0, n });
+      remaining = 0;
+      r.verdict = 'good';
+      r.monthly = need;
+      r.onTimeSlip = 0;
+      r.reason = `Fits: ${S(need)}/mo gets it by ${mlabel(g.date)}; ${S(cut0)}/mo of that comes from your ${ltName} savings without moving its date.`;
+      results.push(r);
+      continue;
+    }
+
     let wk: number | null = null;
     for (let k = 1; k <= STRETCH_MAX_MONTHS; k++) if (needAt(n + k) <= remaining + MONEY_EPS) { wk = k; break; }
     if (wk != null) { r.waitDate = addM(g.date, wk); r.waitMonthly = needAt(n + wk); }

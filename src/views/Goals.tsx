@@ -134,7 +134,7 @@ function GoalCard({ g, r }: { g: ShortGoal; r: GoalResult | undefined }) {
   const p = Math.min(1, (g.saved || 0) / Math.max(1, g.price));
   const cur = g.currency;
   const choose = (c: ShortGoal['stretchChoice']) => setData((d) => ({ ...d, goals: d.goals.map((x) => (x.id === g.id ? { ...x, stretchChoice: c } : x)) }));
-  const canSlip = r?.onTimeSlip != null && Number.isFinite(r.onTimeSlip);
+  const canSlip = r?.onTimeSlip != null && Number.isFinite(r.onTimeSlip) && r.onTimeSlip > 0;
   const slip = r?.onTimeSlip ?? 0;
   const infl = data.settings.longTerm.infl;
   const n = Math.max(0, mdiff(thisMonth(), g.date));

@@ -9,6 +9,8 @@ import { Debts } from './views/Debts';
 import { Giving } from './views/Giving';
 import { Settings } from './components/Settings';
 import { TxSheet } from './components/TxSheet';
+import { Logo } from './components/Logo';
+import { Welcome } from './views/Welcome';
 
 const TABS: { v: View; label: string; icon: ReactElement }[] = [
   { v: 'overview', label: 'Overview', icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
@@ -61,14 +63,14 @@ export default function App() {
   const { view, go, M, month, setUi, toastMsg } = useStore();
   const showMonth = M.months.length > 0 && (view === 'overview' || view === 'spending');
 
-  useEffect(() => { document.title = 'Bachat · ' + TABS.find((t) => t.v === view)!.label; }, [view]);
+  useEffect(() => { document.title = 'MoneyInMyPocket · ' + (TABS.find((t) => t.v === view)?.label ?? 'How it works'); }, [view]);
 
   return (
     <>
       <header className="appbar">
         <div className="wrap bar">
           <a className="brand" href="#overview" onClick={(e) => { e.preventDefault(); go('overview'); }}>
-            <img src="/icons/icon.svg" alt="" width={26} height={26} />Bachat
+            <Logo size={28} />MoneyInMyPocket
           </a>
           <nav className="tabs" aria-label="Sections">
             {TABS.map((t) => <button key={t.v} className="tab" aria-current={view === t.v ? 'page' : undefined} onClick={() => go(t.v)}>{t.label}</button>)}
@@ -81,15 +83,19 @@ export default function App() {
               </select>
             </label>
           )}
+          <button className="gear help" aria-label="How it works" title="How it works" aria-current={view === 'welcome' ? 'page' : undefined} onClick={() => go('welcome')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4V14M12 17h.01" /></svg>
+          </button>
           <button className="gear" aria-label="Settings" title="Settings" onClick={() => setUi({ settingsOpen: true })}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           </button>
         </div>
       </header>
 
-      <div className="wrap"><Banner /></div>
+      {view !== 'welcome' && <div className="wrap"><Banner /></div>}
 
       <main className="wrap view">
+        {view === 'welcome' && <Welcome />}
         {view === 'overview' && <Overview />}
         {view === 'spending' && <Spending />}
         {view === 'goals' && <Goals />}

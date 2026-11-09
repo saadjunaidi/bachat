@@ -534,3 +534,32 @@ describe('final fixes', () => {
 });
 
 function addMonths(k: number) { return addM(NOW, k); }
+
+describe('switching the view currency', () => {
+  it('only rescales the guilt-free amount; old monthly rates do not change the plan', async () => {
+    const { build } = await import('../model');
+    const d: Data = blank('INR');
+    d.accounts = { HDFC: { name: 'HDFC', kind: 'bank', currency: 'INR' } };
+    d.settings.age = '33';
+    let seq = 0;
+    const tx = (date: string, desc: string, amt: number, bal: number) => ({ id: date + desc, acct: 'HDFC', date, desc, amt, bal, seq: seq++ });
+    d.txns = ['2026-08', '2026-09', '2026-10'].flatMap((m, i) => [
+      tx(`${m}-01`, 'SALARY ACME', 300000, 1000000 + i * 150000),
+      tx(`${m}-03`, 'HOUSE RENT', -100000, 900000 + i * 150000),
+      tx(`${m}-28`, 'AMAZON', -50000, 850000 + i * 150000)
+    ]);
+    const inr = plan(d, build(d, FX), FX, NOW);
+    expect(inr.guiltFree).toBeGreaterThan(0);
+
+    // View in USD. Today 1 INR = 0.012 USD; the old months had different rates (0.0125, 0.0118, 0.0121).
+    const usdData: Data = { ...d, settings: { ...d.settings, currency: 'USD' } };
+    const set = (r: number, date: string) => ({ base: 'USD', date, r: { INR: 1 / r, USD: 1 } });
+    const usdFx = { ...EMPTY_FX('USD'), today: set(0.012, '2026-11-09'),
+      months: { '2026-08': set(0.0125, '2026-08-01'), '2026-09': set(0.0118, '2026-09-01'), '2026-10': set(0.0121, '2026-10-01') } };
+    const usd = plan(usdData, build(usdData, usdFx), usdFx, NOW);
+
+    // Same plan, just converted at today's rate: ₹X guilt-free → $X × 0.012.
+    expect(usd.guiltFree).toBeCloseTo(inr.guiltFree * 0.012, 2);
+    expect(usd.shortfall).toBe(0);
+  });
+});

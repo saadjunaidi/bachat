@@ -60,7 +60,7 @@ export function Overview() {
           <Explain><p>Bank balances {short(M.bankBal)} + other assets {short(M.assetsTotal)} − debts {short(M.debtTotal)} = {short(M.netWorth)}{rates ? `, converted at today's rate (${rates})` : ''}.</p></Explain>
         </>} />
         {hasDebts && <Kpi label="Debt-free by" value={P.debtFree ? mlabel(P.debtFree) : 'Never at minimums'} sub={<>
-          <button className="linkbtn small" onClick={() => go('debts')}>See the plan</button>
+          <button className="linkbtn small" onClick={() => go('debts')}>See the payoff plan</button>
           <Explain><p>{debtLine?.explain}</p><p>Strategy: {data.settings.strategy === 'snowball' ? 'smallest balance first' : 'highest interest first'}.</p></Explain>
         </>} />}
         <Kpi label={ltName} value={lt.projected ? lt.projected.slice(0, 4) : '–'} sub={lt.status === 'needAge'

@@ -230,3 +230,68 @@ main.view{display:grid;gap:14px}
 .panel.goal{gap:10px}
 details summary{list-style-position:inside}
 .lg .ellipsis{display:block}
+
+/* ---- Header: help button sits beside settings ---- */
+.gear+.gear{margin-left:0}
+.gear[aria-current=page]{color:var(--accent);background:var(--accent-soft)}
+.logo{flex:none;border-radius:8px}
+
+/* ---- KPI links: keep them left-aligned, never stretched ---- */
+.kpi .linkbtn{align-self:flex-start;text-align:left;font-size:.86rem;margin-top:2px}
+.kpi.hero .linkbtn{color:var(--accent-ink)}
+
+/* ---- Welcome / how it works ---- */
+.welcome{display:flex;flex-direction:column;gap:56px;padding-bottom:24px}
+.w-hero{display:grid;gap:32px;align-items:center;padding-top:12px}
+@media (min-width:900px){.w-hero{grid-template-columns:1.05fr .95fr;gap:56px;padding-top:28px}}
+.w-copy{display:flex;flex-direction:column;gap:18px;max-width:34rem}
+.w-copy h1{font-size:clamp(2.1rem,6vw,3.4rem);line-height:1.02;letter-spacing:-.035em}
+.w-lede{font-size:1.08rem;line-height:1.6;color:var(--fg);margin:0}
+.w-ctas{display:flex;flex-wrap:wrap;gap:10px}
+
+.wf{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow)}
+.wf-in{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:12px;border-bottom:1px dashed var(--line)}
+.wf-in span{color:var(--muted);font-weight:500}
+.wf-in b,.wf-pocket b{font-family:var(--display);font-size:1.5rem;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.wf-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.wf-row{display:flex;justify-content:space-between;gap:12px;font-weight:600;font-size:.95rem}
+.wf-row .num{color:var(--muted);font-variant-numeric:tabular-nums}
+.wf-list small{color:var(--muted);font-size:.8rem}
+.wf-bar{height:8px;border-radius:99px;background:var(--surface-2);margin:6px 0 4px;overflow:hidden}
+.wf-bar i{display:block;height:100%;width:var(--w);border-radius:99px;background:var(--accent)}
+.wf-pocket{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 45%,transparent)}
+.wf-pocket div{display:flex;flex-direction:column}
+.wf-pocket span{font-weight:600}
+.wf-pocket small{color:var(--muted)}
+.wf figcaption{margin-top:-2px}
+@media (prefers-reduced-motion:no-preference){
+  .wf-bar i{animation:wf-grow .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i) * 110ms + 150ms)}
+  .wf-pocket{animation:wf-land .5s ease both;animation-delay:calc(var(--i) * 110ms + 350ms)}
+  @keyframes wf-grow{from{width:0}}
+  @keyframes wf-land{from{opacity:0;transform:translateY(-8px)}}
+}
+
+.w-sec h2{font-size:clamp(1.4rem,3.4vw,1.9rem);letter-spacing:-.02em;margin-bottom:18px}
+.w-cols{display:grid;gap:18px}
+@media (min-width:760px){.w-cols{grid-template-columns:repeat(3,1fr);gap:28px}}
+.w-cols p{margin:0;line-height:1.6;color:var(--muted)}
+.w-cols b{display:block;color:var(--fg);font-size:1.02rem;margin-bottom:4px}
+
+.w-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+@media (min-width:760px){.w-steps{grid-template-columns:1fr 1fr;gap:12px 28px}}
+.w-steps li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+.w-num{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-family:var(--display);font-weight:700}
+.w-steps h3{font-size:1.06rem;margin-bottom:4px}
+.w-steps p{margin:0 0 8px;color:var(--muted);line-height:1.55;max-width:38rem}
+
+.w-free{display:grid;gap:24px;align-items:start}
+@media (min-width:900px){.w-free{grid-template-columns:1.2fr .8fr;gap:56px}}
+.w-free p{line-height:1.6;max-width:38rem;margin:0 0 12px}
+.w-facts{margin:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.w-facts div{padding:14px 16px;border-top:1px solid var(--line)}
+.w-facts div:first-child{border-top:0}
+.w-facts dt{font-weight:600}
+.w-facts dd{margin:2px 0 0;color:var(--muted);font-size:.92rem}
+
+.w-trust{border-top:1px solid var(--line);padding-top:24px;max-width:46rem}
+.w-trust p{line-height:1.6;margin:0 0 10px}

@@ -44,11 +44,11 @@ export async function readBackup(text: string): Promise<Backup> {
   } catch (e) {
     const msg = (e as Error).message;
     if (msg === 'old') throw new Error('This browser is too old to open the backup. Update it or use Chrome, Safari or Firefox.');
-    if (msg === 'format') throw new Error("That doesn't look like a Bachat backup. Copy the whole code, starting with BACHAT.");
+    if (msg === 'format') throw new Error("That doesn't look like a MoneyInMyPocket backup. Copy the whole code, starting with BACHAT.");
     throw new Error('This backup is incomplete or damaged. Copy it again from the other device, making sure nothing is cut off.');
   }
-  if (!j || j.app !== 'bachat' || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a Bachat backup.");
-  if (typeof j.v === 'number' && j.v > 2) throw new Error('This backup was made by a newer version of Bachat. Update the app and try again.');
+  if (!j || j.app !== 'bachat' || !j.state || !Array.isArray(j.state.txns)) throw new Error("That doesn't look like a MoneyInMyPocket backup.");
+  if (typeof j.v === 'number' && j.v > 2) throw new Error('This backup was made by a newer version of MoneyInMyPocket. Update the app and try again.');
   return j;
 }
 
@@ -90,7 +90,7 @@ export function mergeData(cur: Data, b: Backup): { data: Data; added: number } {
   };
 }
 
-export const backupFileName = () => `bachat-backup-${iso(new Date())}.txt`;
+export const backupFileName = () => `moneyinmypocket-backup-${iso(new Date())}.txt`;
 
 /** Saves the backup as a file. On phones that support sharing files, offers the share sheet (WhatsApp, Drive, Files…). */
 export async function saveBackupFile(code: string, preferShare: boolean): Promise<'shared' | 'downloaded'> {
@@ -98,7 +98,7 @@ export async function saveBackupFile(code: string, preferShare: boolean): Promis
   const file = new File([code], name, { type: 'text/plain' });
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
   if (preferShare && nav.canShare && nav.canShare({ files: [file] })) {
-    await navigator.share({ files: [file], title: 'Bachat backup' });
+    await navigator.share({ files: [file], title: 'MoneyInMyPocket backup' });
     return 'shared';
   }
   const url = URL.createObjectURL(file);

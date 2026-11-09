@@ -1,4 +1,4 @@
-# Bachat Money Planner
+# MoneyInMyPocket
 
 Import bank statements, see where your money goes, and plan savings goals. Installable on phones, works offline, and **private by design**: statements are read and stored in the user's own browser. There is no backend and no database.
 
@@ -122,4 +122,4 @@ Most Indian statements work with no changes: the header row is detected automati
 - Shared household view
 - Hindi and other Indian language UI
 
-*Bachat shows estimates from the user's own numbers. It is not financial advice.*
+*MoneyInMyPocket shows estimates from the user's own numbers. It is not financial advice.*

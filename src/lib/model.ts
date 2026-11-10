@@ -12,7 +12,7 @@ export interface Model {
   MO: Record<string, MonthAgg>;
   months: string[];
   complete: string[];
-  a3: { inc: number; exp: number; saved: number; inv: number; rate: number; months: string[]; needs: number; emi: number; spendExEmi: number };
+  a3: { inc: number; exp: number; saved: number; inv: number; rate: number; months: string[]; needs: number; emi: number; spendExEmi: number; donations: number; spend: number };
   acc: Record<string, Account>;
   names: string[];
   end: string | null;
@@ -96,8 +96,10 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
   for (const m of months) needs[m] = 0;
   for (const m of months) for (const [c, v] of Object.entries(MO[m].cats)) if (isNeed(c, d.settings)) needs[m] += v;
   const avgOf = (f: (m: string) => number) => (last3.length ? last3.reduce((s, m) => s + f(m), 0) / last3.length : 0);
-  const a3 = { inc: avg('inc'), exp: avg('exp'), saved: avg('saved'), inv: avg('inv'), rate: NaN, months: last3, needs: avgOf((m) => needs[m]), emi: avgOf((m) => MO[m].cats['Loan EMI'] || 0), spendExEmi: 0 };
+  const a3 = { inc: avg('inc'), exp: avg('exp'), saved: avg('saved'), inv: avg('inv'), rate: NaN, months: last3, needs: avgOf((m) => needs[m]), emi: avgOf((m) => MO[m].cats['Loan EMI'] || 0), spendExEmi: 0, donations: avgOf((m) => MO[m].cats['Donations'] || 0), spend: 0 };
   a3.spendExEmi = a3.exp - a3.emi;
+  // Everything you usually spend, needs and wants alike. Loan EMIs and donations have their own lines in the plan.
+  a3.spend = Math.max(0, a3.spendExEmi - a3.donations);
   a3.rate = a3.inc > 0 ? a3.saved / a3.inc : NaN;
   const totalBal = banks.reduce((s, n) => s + (acc[n].bal || 0), 0);
   const hasBal = banks.some((n) => acc[n].bal != null);

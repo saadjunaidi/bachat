@@ -83,6 +83,9 @@ describe('model needs and EMI', () => {
     expect(M.a3.emi).toBe(7000);
     expect(M.a3.spendExEmi).toBe(M.a3.exp - 7000);
     expect(M.a3.needs).toBe(42000);
+    // usual spending = everything except Loan EMI and Donations (no donations here)
+    expect(M.a3.donations).toBe(0);
+    expect(M.a3.spend).toBe(M.a3.spendExEmi);
   });
 });
 

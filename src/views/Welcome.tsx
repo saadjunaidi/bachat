@@ -5,7 +5,7 @@ import { Logo } from '../components/Logo';
 
 /** An illustrative month, in whatever currency the viewer has chosen. Not the user's data. */
 const FLOW: { label: string; amt: number; note: string }[] = [
-  { label: 'Needs', amt: 45000, note: 'Rent, groceries, bills, transport' },
+  { label: 'Your usual spending', amt: 45000, note: 'Everything you normally spend: rent, groceries, eating out, shopping' },
   { label: 'Debt payments', amt: 15000, note: 'Card minimums and loan EMIs, plus any extra' },
   { label: 'Giving', amt: 3000, note: 'Charity and gifts you plan to give' },
   { label: 'Freedom savings', amt: 20000, note: 'What your long-term goal needs this month' },
@@ -32,7 +32,7 @@ function Waterfall({ islamic }: { islamic: boolean }) {
       </ol>
       <div className="wf-pocket" style={{ ['--i' as string]: FLOW.length }}>
         <Logo size={40} />
-        <div><span>In your pocket</span><b>{m(POCKET)}</b><small>Yours to spend, guilt-free</small></div>
+        <div><span>In your pocket</span><b>{m(POCKET)}</b><small>Extra to spend, guilt-free</small></div>
       </div>
       <figcaption className="small muted">An example month. Your own numbers come from your statements.</figcaption>
     </figure>
@@ -46,8 +46,8 @@ const STEPS: { title: string; body: ReactNode; go: View; cta: string }[] = [
     go: 'statements', cta: 'Import a statement'
   },
   {
-    title: 'Sort needs from wants',
-    body: 'Mark each spending category as a need or a want. Needs are covered first; wants are what your guilt-free amount replaces.',
+    title: 'See where your money goes',
+    body: 'Check your spending by category and tag anything left uncategorised. Your usual spending, needs and wants alike, is covered before anything is called guilt-free.',
     go: 'spending', cta: 'Open Spending'
   },
   {
@@ -67,7 +67,7 @@ const STEPS: { title: string; body: ReactNode; go: View; cta: string }[] = [
   },
   {
     title: 'Spend your guilt-free amount, then repeat monthly',
-    body: 'Everything that matters is already covered, so what’s left is yours. Import each new month’s statement and watch your freedom date move.',
+    body: 'Your usual spending, debts, giving and goals are already covered, so this is extra you can spend without setting anything back. Import each new month’s statement and watch your freedom date move.',
     go: 'overview', cta: 'See your month'
   }
 ];
@@ -159,7 +159,7 @@ export function Welcome() {
         <dl className="w-facts">
           <div><dt>Freedom number</dt><dd>Yearly spending × 25–33</dd></div>
           <div><dt>Monthly target</dt><dd>What gets you there by your chosen age</dd></div>
-          <div><dt>Guilt-free amount</dt><dd>Income minus everything above</dd></div>
+          <div><dt>Guilt-free amount</dt><dd>Income minus your usual spending and everything above</dd></div>
         </dl>
       </section>
 

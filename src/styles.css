@@ -313,3 +313,19 @@ html,body{overflow-x:clip}
   .monthpick select{max-width:9.5rem;padding-left:10px;padding-right:26px}
   .gear{width:36px;height:36px}
 }
+
+/* ---- Savings rate widget ---- */
+.srate{display:flex;flex-direction:column;gap:14px}
+.srate-top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.srate-v{font-family:var(--display);font-size:2.6rem;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.srate-v.good{color:var(--good)}.srate-v.warn{color:var(--warn)}.srate-v.bad{color:var(--bad)}.srate-v.info{color:var(--muted)}
+.srate-gauge{position:relative;height:10px;border-radius:99px;background:var(--surface-2);margin:2px 0 16px}
+.srate-gauge i{display:block;height:100%;border-radius:99px;background:var(--muted)}
+.srate-gauge i.good{background:var(--good)}.srate-gauge i.warn{background:var(--warn)}.srate-gauge i.bad{background:var(--bad)}
+.srate-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--fg);opacity:.35;transform:translateX(-1px)}
+.srate-mark em{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-style:normal;font-size:.72rem;color:var(--muted);white-space:nowrap}
+.srate-facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.srate-facts div{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.srate-facts dt{font-size:.78rem;color:var(--muted)}
+.srate-facts dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
+.srate-free{margin:0;line-height:1.5}

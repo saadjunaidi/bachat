@@ -300,3 +300,20 @@ describe('sample data', () => {
     expect(v('Luxury car')).toBe('bad');
   });
 });
+
+describe('savings rate → years to freedom', () => {
+  it('matches the hand calculation and the edge cases', async () => {
+    const { yearsToFreedom } = await import('../finance');
+    // Income = 1/month. Rate 50% → save 0.5/mo, spend 0.5/mo = 6/yr; target 25 × 6 = 150.
+    // 5% real yearly → m = 1.05^(1/12) − 1 ≈ 0.0040741. Need 0.5·((1+m)^n − 1)/m ≥ 150 → (1+m)^n ≥ 1 + 300m = 2.2222
+    // n = ln 2.2222 / ln 1.0040741 = 0.79851 / 0.0040658 ≈ 196.4 → 197 months.
+    expect(yearsToFreedom(0.5, 0.05, 25)).toBeCloseTo(197 / 12, 5);
+    // Higher savings rate → sooner; lower → later.
+    expect(yearsToFreedom(0.75, 0.05, 25)!).toBeLessThan(yearsToFreedom(0.5, 0.05, 25)!);
+    expect(yearsToFreedom(0.1, 0.05, 25)!).toBeGreaterThan(40);
+    expect(yearsToFreedom(1, 0.05, 25)).toBe(0);     // spending nothing: free now
+    expect(yearsToFreedom(0, 0.05, 25)).toBeNull();  // saving nothing: never
+    expect(yearsToFreedom(-0.2, 0.05, 25)).toBeNull();
+    expect(yearsToFreedom(NaN, 0.05, 25)).toBeNull();
+  });
+});

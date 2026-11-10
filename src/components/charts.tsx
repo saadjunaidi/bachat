@@ -49,8 +49,13 @@ function base(t: Tokens): ChartOptions<'bar'> {
 export function FlowChart({ months, inc, exp, rate, selected }: { months: string[]; inc: number[]; exp: number[]; rate: (number | null)[]; selected: string }) {
   const t = useTokens();
   const opts = base(t) as ChartOptions<'bar'> & { scales: Record<string, unknown> };
-  opts.scales.y1 = { position: 'right', grid: { display: false }, border: { display: false }, min: 0, max: 1, ticks: { color: t.muted, stepSize: 0.25, callback: (v: number | string) => Math.round(Number(v) * 100) + '%' } };
-  opts.plugins!.tooltip!.callbacks = { label: (c) => ((c.dataset as { yAxisID?: string }).yAxisID === 'y1' ? ' Savings rate ' + pct(Number(c.raw)) : ' ' + c.dataset.label + ' ' + money(Number(c.raw))) };
+  // Savings rate can be negative (spent more than earned). Show it down to −100%; lower values sit on that
+  // floor and the tooltip gives the real figure.
+  const finite = rate.filter((r): r is number => r != null && isFinite(r));
+  const lo = Math.max(-1, Math.min(0, Math.floor(Math.min(0, ...finite) * 4) / 4));
+  const shown = rate.map((r) => (r == null || !isFinite(r) ? null : Math.max(-1, Math.min(1, r))));
+  opts.scales.y1 = { position: 'right', grid: { display: false }, border: { display: false }, min: lo, max: 1, ticks: { color: t.muted, stepSize: 0.25, callback: (v: number | string) => Math.round(Number(v) * 100) + '%' } };
+  opts.plugins!.tooltip!.callbacks = { label: (c) => ((c.dataset as { yAxisID?: string }).yAxisID === 'y1' ? ' Savings rate ' + pct(Number(rate[c.dataIndex])) : ' ' + c.dataset.label + ' ' + money(Number(c.raw))) };
   const sel = (on: string, off: string) => months.map((m) => (m === selected ? on : off));
   return (
     <Chart
@@ -62,7 +67,7 @@ export function FlowChart({ months, inc, exp, rate, selected }: { months: string
       data={{
         labels: months.map(mshort),
         datasets: ([
-          { type: 'line' as const, label: 'Savings rate', data: rate, yAxisID: 'y1', borderColor: t.fg, backgroundColor: t.fg, borderWidth: 2, pointRadius: months.map((m) => (m === selected ? 5 : 2.5)), tension: 0.3, spanGaps: true, order: 0 },
+          { type: 'line' as const, label: 'Savings rate', data: shown, yAxisID: 'y1', borderColor: t.fg, backgroundColor: t.fg, borderWidth: 2, pointRadius: months.map((m) => (m === selected ? 5 : 2.5)), tension: 0, spanGaps: true, order: 0 },
           { type: 'bar' as const, label: 'In', data: inc, backgroundColor: sel(t.accent, t.accent + '99'), borderRadius: 5, maxBarThickness: 22, order: 1 },
           { type: 'bar' as const, label: 'Out', data: exp, backgroundColor: sel(t.gold, t.gold + '99'), borderRadius: 5, maxBarThickness: 22, order: 1 }
         ] as any)

@@ -329,3 +329,6 @@ html,body{overflow-x:clip}
 .srate-facts dt{font-size:.78rem;color:var(--muted)}
 .srate-facts dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
 .srate-free{margin:0;line-height:1.5}
+/* Top KPI row holds 4 or 5 cards (Debt-free only appears with debts): equal columns for whatever is there. */
+@media (min-width:900px){.kpis.kpis-top{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}}
+.srate-kv.good{color:var(--good)}.srate-kv.warn{color:var(--warn)}.srate-kv.bad{color:var(--bad)}

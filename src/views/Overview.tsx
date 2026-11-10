@@ -11,7 +11,8 @@ import { BalanceChart, DonutChart, FlowChart } from '../components/charts';
 import { Delta, Dot, EmptyState, Explain, Kpi, Panel } from '../components/ui';
 
 /** Savings rate over the last 3 full months, with context and what it means for financial freedom. */
-function SavingsRate({ M, data, thisMonth, goGoals }: { M: Model; data: Data; thisMonth: number; goGoals: () => void }) {
+/** Savings-rate figures shared by the top-row card and the detailed widget, so they always agree. */
+function savingsSummary(M: Model, data: Data) {
   const a = M.a3;
   const last12 = M.complete.slice(-12);
   const inc12 = last12.reduce((s, m) => s + M.MO[m].inc, 0);
@@ -20,6 +21,11 @@ function SavingsRate({ M, data, thisMonth, goGoals }: { M: Model; data: Data; th
   const lt = data.settings.longTerm;
   const real = (1 + lt.ret / 100) / (1 + lt.infl / 100) - 1;
   const years = isFinite(r) ? yearsToFreedom(r, real, lt.mult) : null;
+  return { a, rate12, r, lt, real, years };
+}
+
+function SavingsRate({ M, data, thisMonth, goGoals }: { M: Model; data: Data; thisMonth: number; goGoals: () => void }) {
+  const { a, rate12, r, lt, real, years } = savingsSummary(M, data);
   const tone = rateTone(r);
   const fill = isFinite(r) ? Math.max(0, Math.min(1, r / 0.7)) : 0;
   const verdict = !isFinite(r) ? 'Import a full month of statements to see this.'
@@ -28,7 +34,7 @@ function SavingsRate({ M, data, thisMonth, goGoals }: { M: Model; data: Data; th
     : r < 0.4 ? 'Healthy. 40% or more builds wealth fast.'
     : 'Excellent. You’re building wealth fast.';
   return (
-    <Panel title="Savings rate" aside={<span className="small muted">last {a.months.length || 3} full months</span>}>
+    <Panel id="savings-rate" title="Savings rate" aside={<span className="small muted">last {a.months.length || 3} full months</span>}>
       <div className="srate">
         <div className="srate-top"><b className={'srate-v ' + tone}>{isFinite(r) ? pct(r) : '–'}</b><span className="small">{verdict}</span></div>
         <div className="srate-gauge" role="img" aria-label={isFinite(r) ? `Savings rate ${pct(r)}; markers at 20% and 40%` : 'No savings rate yet'}>
@@ -85,6 +91,7 @@ export function Overview() {
   const topGoalName = topGoal ? data.goals.find((g) => g.id === topGoal.id)?.name ?? null : null;
   const owned = M.bankBal + M.assetsTotal;
   const pillCls = lt.status === 'behind' ? 'bad' : 'good';
+  const sr = savingsSummary(M, data);
   const pillTxt = lt.status === 'ahead' ? 'Ahead of target' : lt.status === 'on' ? 'On track' : 'Behind target';
 
   return (
@@ -93,7 +100,7 @@ export function Overview() {
         <div><p className="label">{partial ? 'Month so far' : 'Month summary'}</p><h1>{mlabel(m)}</h1></div>
         {M.end && <p className="muted small">Statements up to {dlong(M.end)}</p>}
       </div>
-      <div className="grid kpis">
+      <div className="grid kpis kpis-top">
         <Kpi hero label="Guilt-free this month" value={P.ready ? short(P.guiltFree) : '–'} sub={<>
           <span className="small muted">{!P.ready ? 'Import a full month of statements to see this.'
             : P.shortfall > 0 ? `Short ${short(P.shortfall)}/mo.${P.biggest ? ` ${P.biggest} is the biggest.` : ''}`
@@ -109,6 +116,12 @@ export function Overview() {
           <button className="linkbtn small" onClick={() => go('debts')}>See the payoff plan</button>
           <Explain><p>{debtLine?.explain}</p><p>Strategy: {data.settings.strategy === 'snowball' ? 'smallest balance first' : 'highest interest first'}.</p></Explain>
         </>} />}
+        <Kpi label="Savings rate" value={<span className={'srate-kv ' + rateTone(sr.r)}>{isFinite(sr.r) ? pct(sr.r) : '–'}</span>} sub={<>
+          <span className="small muted">{!isFinite(sr.r) ? 'Import a full month of statements to see this.'
+            : sr.years == null ? 'Saving nothing, so freedom is out of reach.'
+            : `About ${Math.max(1, Math.ceil(sr.years))} years to freedom at this rate`}</span>
+          {isFinite(sr.r) && <button className="linkbtn small" onClick={() => document.getElementById('savings-rate')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>See the breakdown</button>}
+        </>} />
         <Kpi label={ltName} value={lt.projected ? lt.projected.slice(0, 4) : '–'} sub={lt.status === 'needAge'
           ? <button className="linkbtn small" onClick={() => go('goals')}>Set your age on Goals</button>
           : <>

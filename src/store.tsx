@@ -7,8 +7,8 @@ import { setCurrency, thisMonth } from './lib/format';
 import { loadData, saveData } from './lib/storage';
 import { sampleData } from './lib/sample';
 
-export type View = 'overview' | 'spending' | 'goals' | 'debts' | 'giving' | 'statements';
-export const VIEWS: View[] = ['overview', 'spending', 'goals', 'debts', 'giving', 'statements'];
+export type View = 'welcome' | 'overview' | 'spending' | 'goals' | 'debts' | 'giving' | 'statements';
+export const VIEWS: View[] = ['welcome', 'overview', 'spending', 'goals', 'debts', 'giving', 'statements'];
 export type Filter = 'all' | 'out' | 'in' | 'unk';
 
 export interface UI { month: string | null; cat: string | null; flt: Filter; q: string; lim: number; editGoal: string | null; editDebt: string | null; tx: string | null; settingsOpen: boolean }
@@ -33,18 +33,15 @@ const Ctx = createContext<Store | null>(null);
 
 const readView = (): View => {
   const h = location.hash.slice(1);
-  return (VIEWS as string[]).includes(h) ? (h as View) : 'overview';
+  // The site's landing page (no hash, or an unknown one) is the welcome page.
+  return (VIEWS as string[]).includes(h) ? (h as View) : 'welcome';
 };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setDataRaw] = useState<Data>(() => loadData() ?? sampleData());
   const [ui, setUiRaw] = useState<UI>({ month: null, cat: null, flt: 'all', q: '', lim: 60, editGoal: null, editDebt: null, tx: null, settingsOpen: false });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [view, setView] = useState<View>(() => {
-    const d = loadData();
-    if (d && !d.sample && !d.txns.length && !location.hash) return 'statements';
-    return readView();
-  });
+  const [view, setView] = useState<View>(readView);
   const timer = useRef<number>(0);
   const anchor = useRef<string | null>(null);
 

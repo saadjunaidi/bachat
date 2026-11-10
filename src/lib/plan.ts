@@ -3,7 +3,7 @@ import { needed } from './finance';
 import { addM, mdiff, mlabel, short } from './format';
 import { toView, type Fx } from './fx';
 import { zakatFor } from './giving';
-import type { Model } from './model';
+import { build, type Model } from './model';
 import type { Data, LongTerm, ShortGoal } from './types';
 
 /**
@@ -219,7 +219,10 @@ const zakatMonthlyFor = (d: Data, M: Model, fx: Fx): number => {
 };
 
 export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}): Plan {
-  const a = M.a3;
+  // The plan compares this month's income and spending with today's goals, debts and prices, so it must use
+  // one exchange rate throughout: today's. (History charts keep each month's own rate via M.)
+  // Without this, switching the view currency could change the answer, not just rescale it.
+  const a = Object.keys(fx.months).length ? build(d, { ...fx, months: {} }).a3 : M.a3;
   const s = d.settings;
   const view = fx.view;
   const ageN = parseInt(s.age, 10);

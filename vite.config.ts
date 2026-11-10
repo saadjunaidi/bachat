@@ -10,10 +10,10 @@ export default defineConfig({
       injectRegister: 'script', // separate registerSW.js file, so the strict CSP needs no inline scripts
       includeAssets: ['icons/*.png', 'icons/icon.svg', 'privacy.html', 'robots.txt'],
       manifest: {
-        name: 'Bachat Money Planner',
-        short_name: 'Bachat',
+        name: 'MoneyInMyPocket',
+        short_name: 'MoneyInMyPocket',
         description: 'See where your money goes and plan your savings goals. Your statements never leave your device.',
-        start_url: '/',
+        start_url: '/#overview', // the installed app opens on your numbers; the website lands on the welcome page
         scope: '/',
         display: 'standalone',
         background_color: '#F2F5F1',
@@ -29,7 +29,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,webmanifest}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/privacy\.html$/]
+        navigateFallbackDenylist: [/^\/privacy\.html$/],
+        // A new version takes over immediately instead of waiting for every tab to close.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true
       }
     })
   ],

@@ -195,7 +195,7 @@ describe('backup', () => {
   it('explains damaged or wrong input', async () => {
     const code = await makeBackup(big());
     await expect(readBackup(code.slice(0, -40))).rejects.toThrow(/incomplete or damaged/);
-    await expect(readBackup('hello')).rejects.toThrow(/doesn't look like a Bachat backup/);
+    await expect(readBackup('hello')).rejects.toThrow(/doesn't look like a MoneyInMyPocket backup/);
   });
   it('v2 round-trips debts and gifts', async () => {
     const d = big();
@@ -223,7 +223,7 @@ describe('backup', () => {
   });
   it('rejects newer backup versions but loads a missing v', async () => {
     const mk = (v?: number) => JSON.stringify({ app: 'bachat', ...(v === undefined ? {} : { v }), at: '2026-01-01T00:00:00Z', state: { txns: [] } });
-    await expect(readBackup(mk(3))).rejects.toThrow(/newer version of Bachat/);
+    await expect(readBackup(mk(3))).rejects.toThrow(/newer version of MoneyInMyPocket/);
     expect(restoreData(await readBackup(mk())).txns).toEqual([]);
   });
   it('merge: gifts by id (current wins) and assets rule', async () => {

@@ -13,6 +13,17 @@ import { requestPersistence } from './lib/storage';
 
 requestPersistence();
 
+// When a new version of the app takes over, reload once so the open page shows it.
+// (Skipped on the very first install, when there was no previous version controlling the page.)
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <StoreProvider>

@@ -228,7 +228,7 @@ function BackupPanel() {
         </div>
         <div className="stack">
           <p className="label">2 · On the new device</p>
-          <p className="small muted">Open Bachat, go to Statements, then choose the backup file or paste the code.</p>
+          <p className="small muted">Open MoneyInMyPocket, go to Statements, then choose the backup file or paste the code.</p>
           <label className="btn plain" htmlFor="rs-file" style={{ justifySelf: 'start', cursor: 'pointer' }}>Choose backup file
             <input id="rs-file" type="file" accept=".txt,.json,text/plain,application/json" className="sr" onChange={(e) => { const f = e.target.files?.[0]; if (f) readFile(f); e.target.value = ''; }} /></label>
           <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="…or paste your backup code (starts with BACHAT)" aria-label="Paste backup code" />
@@ -299,7 +299,7 @@ export function Statements() {
               <span className="small muted">Money moved between your own accounts is then left out of income and spending.</span></div>
             <div className="field"><label>App</label>
               <div className="formactions">
-                {!inst.installed && inst.canPrompt && <button className="btn" onClick={inst.prompt}>Install Bachat</button>}
+                {!inst.installed && inst.canPrompt && <button className="btn" onClick={inst.prompt}>Install MoneyInMyPocket</button>}
                 {!inst.installed && !inst.canPrompt && inst.ios && <span className="small muted">To install: tap Share, then “Add to Home Screen”.</span>}
                 <button className="btn plain" onClick={() => { setData((d) => ({ ...sampleData(), settings: { ...sampleData().settings, age: d.settings.age || '33' } })); go('overview'); }}>Load sample data</button>
                 <ConfirmButton confirmText="Tap again to delete everything" onConfirm={() => { setData(() => blank()); toast('All data deleted from this device'); }}>Delete all my data</ConfirmButton>

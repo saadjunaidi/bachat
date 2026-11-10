@@ -11,7 +11,7 @@ const FX = EMPTY_FX('INR');
 // plan() only reads a3, bankBal and netWorth from the Model, so tests use a hand-built one with exact numbers.
 const model = (a3: Partial<Model['a3']>, rest: Partial<Model> = {}): Model =>
   ({
-    a3: { inc: 0, exp: 0, saved: 0, inv: 0, rate: NaN, months: ['2026-08', '2026-09', '2026-10'], needs: 0, emi: 0, spendExEmi: 0, ...a3 },
+    a3: { inc: 0, exp: 0, saved: 0, inv: 0, rate: NaN, months: ['2026-08', '2026-09', '2026-10'], needs: 0, emi: 0, spendExEmi: 0, donations: 0, spend: 0, ...a3 },
     bankBal: 0, debtTotal: 0, assetsTotal: 0, netWorth: 0, fxMissing: [],
     ...rest
   }) as unknown as Model;
@@ -49,7 +49,7 @@ describe('verdicts', () => {
   it("owner's example: ₹50L car on ₹1L/mo income is bad, 50× income", () => {
     // income 1,00,000, needs 50,000, no debt, no age → reserve 0, so avail = 50,000.
     const d = data({ goals: [goal({ name: 'Luxury car', price: 5000000, date: '2027-12' })] });
-    const P = plan(d, model({ inc: 100000, needs: 50000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 50000 }), FX, NOW);
     const g = P.goals[0];
     // 50,00,000 / 1,00,000 = 50 ≥ 24 → bad
     expect(g.incomeMultiple).toBe(50);
@@ -188,9 +188,9 @@ describe('waterfall', () => {
       goals: [goal({ name: 'Trip', price: 24000, date: '2027-11' })]
     });
     // a3.emi is also 14200 here, but a loan exists, so it isn't added a second time.
-    const P = plan(d, model({ inc: 100000, needs: 52000, emi: 14200, spendExEmi: 4000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 52000, emi: 14200, spendExEmi: 4000 }), FX, NOW);
     expect(P.ready).toBe(true);
-    expect(P.lines.map((l) => l.key)).toEqual(['income', 'needs', 'debt', 'giving', 'longTerm', 'goals']);
+    expect(P.lines.map((l) => l.key)).toEqual(['income', 'spending', 'debt', 'giving', 'longTerm', 'goals']);
     expect(line(P, 'debt').amount).toBe(17600); // 3400 + 14200 + 0 extra
     expect(line(P, 'giving').amount).toBe(0);
     expect(P.longTerm.target).toBe(1200000);
@@ -204,11 +204,11 @@ describe('waterfall', () => {
   });
 
   it('spending more than income: guilt-free 0, shortfall ₹10K, Needs biggest', () => {
-    const P = plan(data(), model({ inc: 50000, needs: 60000 }), FX, NOW);
+    const P = plan(data(), model({ inc: 50000, spend: 60000 }), FX, NOW);
     // 50000 − 60000 − 0 − 0 − 0 − 0 = −10000 → guiltFree 0, shortfall 10000
     expect(P.guiltFree).toBe(0);
     expect(P.shortfall).toBe(10000);
-    expect(P.biggest).toBe('Needs');
+    expect(P.biggest).toBe('Your usual spending');
     const nums = [P.guiltFree, P.shortfall, P.netWorth, ...P.lines.map((l) => l.amount), P.longTerm.target, P.longTerm.have, P.longTerm.reserve];
     expect(nums.some((x) => Number.isNaN(x))).toBe(false);
   });
@@ -217,13 +217,13 @@ describe('waterfall', () => {
     const d = data();
     d.settings.givingPlan = 80000;
     // 100000 − 30000 needs − 80000 giving = −10000 → shortfall 10000; biggest = Giving (80000 > 30000)
-    const P = plan(d, model({ inc: 100000, needs: 30000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 30000 }), FX, NOW);
     expect(P.shortfall).toBe(10000);
     expect(P.biggest).toBe('Giving');
   });
 
   it('not enough data: ready false, guilt-free 0', () => {
-    const P = plan(data(), model({ inc: 100000, needs: 50000, months: [] }), FX, NOW);
+    const P = plan(data(), model({ inc: 100000, spend: 50000, months: [] }), FX, NOW);
     expect(P.ready).toBe(false);
     expect(P.guiltFree).toBe(0);
     expect(P.lines.every((l) => l.amount === 0)).toBe(true);
@@ -231,7 +231,7 @@ describe('waterfall', () => {
   });
 
   it('EMI seen in statements with no loan added goes on the debt line', () => {
-    const P = plan(data(), model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW);
+    const P = plan(data(), model({ inc: 100000, spend: 50000, emi: 14200 }), FX, NOW);
     expect(line(P, 'debt').amount).toBe(14200);
     expect(line(P, 'debt').explain).toContain('add this loan');
     // No debts entered → no payoff date.
@@ -258,7 +258,7 @@ describe('waterfall', () => {
     //   with extra:  10000k + 20000(k − 6) ≥ 1200000 → 30000k ≥ 1320000 → k = 44 → 2030-07
     //   no extra:    10000k + 10000(k − 12) ≥ 1200000 → 20000k ≥ 1320000 → k = 66 → 2032-05
     const d = data({ ...ltSetup, extra: 10000, debts: [debt({ balance: 120000, minPay: 10000 })] });
-    const P = plan(d, model({ inc: 100000, needs: 50000, spendExEmi: 4000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 50000, spendExEmi: 4000 }), FX, NOW);
     expect(line(P, 'debt').amount).toBe(20000);
     expect(P.debtFree).toBe('2027-05');
     expect(P.longTerm.projected).toBe('2030-07');
@@ -275,7 +275,7 @@ describe('waterfall', () => {
     // On time: cut 10000 for months 1..5 → reserve 10000 − 10000 = 0 in those months.
     //   Without cut: 10000k ≥ 1200000 → k = 120. With cut: 10000(k − 5) ≥ 1200000 → k = 125 → slip 5.
     const d = data({ ...ltSetup, goals: [goal({ name: 'Bike', price: 200000, date: '2027-04', stretchChoice: 'onTime' })] });
-    const P = plan(d, model({ inc: 100000, needs: 60000, spendExEmi: 4000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 60000, spendExEmi: 4000 }), FX, NOW);
     const g = P.goals[0];
     expect(g.verdict).toBe('stretch');
     expect(g.onTimeSlip).toBe(5);
@@ -295,7 +295,7 @@ describe('waterfall', () => {
     // avail 30000, reserve 10000. Goal 400000 in 5 months: need 80000 → cut 50000 > 10000 reserve → invalid.
     // Wait: 400000 / (5 + k) ≤ 30000 → 5 + k ≥ 13.33 → k = 9 → 2027-04 + 9 = 2028-01
     const d = data({ ...ltSetup, goals: [goal({ price: 400000, date: '2027-04', stretchChoice: 'onTime' })] });
-    const g = plan(d, model({ inc: 100000, needs: 60000, spendExEmi: 4000 }), FX, NOW).goals[0];
+    const g = plan(d, model({ inc: 100000, spend: 60000, spendExEmi: 4000 }), FX, NOW).goals[0];
     expect(g.onTimeSlip).toBeNull();
     expect(g.verdict).toBe('stretch');
     expect(g.effDate).toBe('2028-01');
@@ -378,7 +378,7 @@ describe('fix round 1', () => {
     const d = data({ age: '42', goals: [goal({ name: 'G0', price: 205925, saved: 25070, ret: 1, date: '2027-05', stretchChoice: 'onTime' })] });
     d.settings.longTerm = lt({ targetAge: 56, ret: 7, infl: 1 });
     d.settings.givingPlan = 468;
-    const P = plan(d, model({ inc: 140194, needs: 70802, spendExEmi: 58016 }, { bankBal: 218847 }), FX, NOW);
+    const P = plan(d, model({ inc: 140194, spend: 70802, spendExEmi: 58016 }, { bankBal: 218847 }), FX, NOW);
     expect(P.goals[0].verdict).toBe('stretch');
     expect(P.goals[0].effDate).toBe('2027-05'); // on time
     expect(P.shortfall).toBe(0);
@@ -390,7 +390,7 @@ describe('fix round 1', () => {
 
   it('target age at or below the current age asks for a later one', () => {
     const d = data({ age: '60', targetAge: 50 });
-    const P = plan(d, model({ inc: 100000, needs: 50000, spendExEmi: 4000 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 50000, spendExEmi: 4000 }), FX, NOW);
     expect(P.longTerm.status).toBe('needAge');
     expect(P.longTerm.reserve).toBe(0);
     expect(P.longTerm.projected).toBeNull();
@@ -411,7 +411,7 @@ describe('fix round 1', () => {
     // No age → reserve 0 → on-time impossible. avail = 100000 − 70000 = 30000.
     // 400000 in 4 months: wait k = 10 → 400000 / 14 = 28571 ≤ 30000 → stretch by waiting.
     const d = data({ goals: [goal({ price: 400000, date: '2027-03' })] });
-    const g = plan(d, model({ inc: 100000, needs: 70000 }), FX, NOW).goals[0];
+    const g = plan(d, model({ inc: 100000, spend: 70000 }), FX, NOW).goals[0];
     expect(g.verdict).toBe('stretch');
     expect(g.reason).toContain('target age to see the buy-on-time option');
     expect(g.reason).not.toContain('too much');
@@ -421,7 +421,7 @@ describe('fix round 1', () => {
     // age 20 → target age 125 = 1260 months, past the 1200-month projection horizon,
     // so the no-cut projection never arrives and the slip can't be measured → Infinity → no on-time option.
     const d = data({ age: '20', targetAge: 125, goals: [goal({ price: 200000, date: '2027-04', stretchChoice: 'onTime' })] });
-    const g = plan(d, model({ inc: 100000, needs: 60000, spendExEmi: 4000 }), FX, NOW).goals[0];
+    const g = plan(d, model({ inc: 100000, spend: 60000, spendExEmi: 4000 }), FX, NOW).goals[0];
     expect(g.onTimeSlip).toBeNull();
     expect(g.reason).not.toContain('keeps its date');
   });
@@ -461,7 +461,7 @@ describe('plan giving line with zakat', () => {
 describe('fix round 2', () => {
   it('no target age + known age plans with the suggested target age', () => {
     // age 33, freedom: suggestAge = max(50, 48) = 50
-    const m = model({ inc: 100000, needs: 50000, spendExEmi: 4000 }, { bankBal: 100000 });
+    const m = model({ inc: 100000, spend: 50000, spendExEmi: 4000 }, { bankBal: 100000 });
     const a = plan(data({ age: '33', targetAge: null }), m, FX, NOW);
     const b = plan(data({ age: '33', targetAge: 50 }), m, FX, NOW);
     expect(a.longTerm).toEqual(b.longTerm);
@@ -491,7 +491,7 @@ describe('final fixes', () => {
     // Imported loan, EMI not entered yet: minPay 0. Observed Loan EMI average 14200.
     // The loan is "EMI unknown": left out of the payoff and the minimums (0), so the fallback is the full 14200.
     const d = data({ debts: [debt({ id: 'l', name: 'Car loan', balance: 472000, apr: 9.5, minPay: 0 })] });
-    const P = plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 50000, emi: 14200 }), FX, NOW);
     expect(line(P, 'debt').amount).toBe(14200);
     expect(line(P, 'debt').explain).toContain('14.2K');
     // No loan with a known EMI → no payoff date.
@@ -505,18 +505,18 @@ describe('final fixes', () => {
     // Unknown loan: EMI 0. Observed EMI 14200 → fallback max(0, 14200 − 5000) = 9200.
     // Debt line = 5000 + 9200 = 14200.
     const d = data({ debts: [debt({ id: 'k', name: 'Bike loan', balance: 10000, minPay: 5000 }), debt({ id: 'u', name: 'Car loan', balance: 472000, apr: 9.5, minPay: 0 })] });
-    const P = plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW);
+    const P = plan(d, model({ inc: 100000, spend: 50000, emi: 14200 }), FX, NOW);
     expect(line(P, 'debt').amount).toBe(14200);
     expect(P.debtFree).toBe('2027-01');
     // Known EMIs above the observed average: fallback never negative → 20000 + 0.
     const d2 = data({ debts: [debt({ id: 'k', balance: 100000, minPay: 20000 }), debt({ id: 'u', balance: 5000, minPay: 0 })] });
-    expect(line(plan(d2, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(20000);
+    expect(line(plan(d2, model({ inc: 100000, spend: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(20000);
   });
 
   it('every loan has an EMI: no observed-EMI fallback (unchanged)', () => {
     const d = data({ debts: [debt({ id: 'k', balance: 142000, minPay: 14200 })] });
     // 14200 EMI only; the observed 14200 is the same loan, not added twice.
-    expect(line(plan(d, model({ inc: 100000, needs: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(14200);
+    expect(line(plan(d, model({ inc: 100000, spend: 50000, emi: 14200 }), FX, NOW), 'debt').amount).toBe(14200);
   });
 
   it("bad goal: 'earliest' is never before the goal's own date", () => {
@@ -545,8 +545,8 @@ describe('switching the view currency', () => {
     const tx = (date: string, desc: string, amt: number, bal: number) => ({ id: date + desc, acct: 'HDFC', date, desc, amt, bal, seq: seq++ });
     d.txns = ['2026-08', '2026-09', '2026-10'].flatMap((m, i) => [
       tx(`${m}-01`, 'SALARY ACME', 300000, 1000000 + i * 150000),
-      tx(`${m}-03`, 'HOUSE RENT', -100000, 900000 + i * 150000),
-      tx(`${m}-28`, 'AMAZON', -50000, 850000 + i * 150000)
+      tx(`${m}-03`, 'HOUSE RENT', -60000, 900000 + i * 150000),
+      tx(`${m}-28`, 'AMAZON', -10000, 850000 + i * 150000)
     ]);
     const inr = plan(d, build(d, FX), FX, NOW);
     expect(inr.guiltFree).toBeGreaterThan(0);
@@ -561,5 +561,27 @@ describe('switching the view currency', () => {
     // Same plan, just converted at today's rate: ₹X guilt-free → $X × 0.012.
     expect(usd.guiltFree).toBeCloseTo(inr.guiltFree * 0.012, 2);
     expect(usd.shortfall).toBe(0);
+  });
+});
+
+describe('guilt-free counts all usual spending', () => {
+  it('wants are subtracted too: 100K income − 70K spent (needs + wants) = 30K', () => {
+    // needs 20K, but 70K spent in all → only 30K is truly free
+    const P = plan(data(), model({ inc: 100000, needs: 20000, spend: 70000 }), FX, NOW);
+    expect(line(P, 'spending').amount).toBe(70000);
+    expect(P.guiltFree).toBe(30000);
+  });
+
+  it('donations already in the statements are not counted twice with planned giving', () => {
+    const d = data();
+    d.settings.givingPlan = 5000;
+    // statements show 3K donations (kept out of spend); plan 5K → giving line is the larger, 5K
+    const P = plan(d, model({ inc: 100000, spend: 60000, donations: 3000 }), FX, NOW);
+    expect(line(P, 'giving').amount).toBe(5000);
+    expect(P.guiltFree).toBe(35000);
+    // giving more than planned: the observed 8K is used
+    const P2 = plan(d, model({ inc: 100000, spend: 60000, donations: 8000 }), FX, NOW);
+    expect(line(P2, 'giving').amount).toBe(8000);
+    expect(P2.guiltFree).toBe(32000);
   });
 });

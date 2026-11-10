@@ -94,6 +94,8 @@ main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 .view[hidden]{display:none}
 .head{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 16px}
 .head h1{font-size:clamp(1.45rem,4.6vw,2rem)}
+.head-month{margin-top:8px}
+.head-month h2{font-size:clamp(1.15rem,3.6vw,1.45rem)}
 .grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
 .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (min-width:880px){

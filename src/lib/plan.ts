@@ -29,7 +29,7 @@ const EPS = 1e-9;
 const MONEY_EPS = 0.005;
 const snap = (x: number) => (Math.abs(x) < MONEY_EPS ? 0 : x);
 
-export interface PlanLine { key: 'income' | 'needs' | 'debt' | 'giving' | 'longTerm' | 'goals'; label: string; amount: number; explain: string }
+export interface PlanLine { key: 'income' | 'spending' | 'debt' | 'giving' | 'longTerm' | 'goals'; label: string; amount: number; explain: string }
 /**
  * All figures in today's money. `monthsVsTarget` = targetMonth − projected in months: positive = ahead
  * (earlier than the target), negative = behind, null when not projectable.
@@ -242,7 +242,7 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   if (!a.months.length) {
     // Not enough data: views show "Import a full month of statements to see this" and must check `ready` first.
     const explain = 'Import a full month of statements to see this.';
-    const labels: [PlanLine['key'], string][] = [['income', 'Income'], ['needs', 'Needs'], ['debt', 'Debt payments'], ['giving', 'Giving'], ['longTerm', ltLabel], ['goals', 'Short-term goals']];
+    const labels: [PlanLine['key'], string][] = [['income', 'Income'], ['spending', 'Your usual spending'], ['debt', 'Debt payments'], ['giving', 'Giving'], ['longTerm', ltLabel], ['goals', 'Short-term goals']];
     return {
       ready: false, lines: labels.map(([key, label]) => ({ key, label, amount: 0, explain })), guiltFree: 0, shortfall: 0, biggest: null,
       longTerm: { target: 0, have, reserve: 0, yearlySpend: 0, targetMonth: null, projected: null, status: 'needAge', monthsVsTarget: null, projectedNoExtra: null },
@@ -278,7 +278,9 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
   // Zakat is computed here unless a caller overrides it (tests).
   const zakatM = Math.max(0, opts.zakatMonthly ?? (s.islamic ? zakatMonthlyFor(d, M, fx) : 0));
   const planned = Math.max(0, s.givingPlan || 0);
-  const giving = zakatM + planned;
+  // What you plan to give, or what your statements show you already give, whichever is more (never counted twice).
+  const giving = Math.max(zakatM + planned, a.donations || 0);
+  const givenMore = (a.donations || 0) > zakatM + planned;
 
   // Long-term reserve, then goals, then the projection with the goals' on-time cuts.
   const reserve = longTerm({ yearlySpend, have, age, lt, now, contrib: () => 0 }).reserve;
@@ -296,7 +298,7 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
     if (!Number.isFinite(withCut) || !Number.isFinite(without)) return Infinity;
     return Math.max(0, withCut - without);
   };
-  const avail = Math.max(0, snap(a.inc - a.needs - debtAmt - giving - reserve));
+  const avail = Math.max(0, snap(a.inc - a.spend - debtAmt - giving - reserve));
   const noReserveHint = reserve > 0 ? undefined
     : age == null ? 'add your age and a target age to see the buy-on-time option'
       : lt.targetAge == null || lt.targetAge <= age ? 'set a target age to see the buy-on-time option'
@@ -324,7 +326,9 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
     ? `${debtParts.join(' + ')} = ${S(debtAmt)} a month${debtFree ? `, debt-free by ${mlabel(debtFree)}` : ''}.`
     : 'You have no debt payments.') + unused;
 
-  const givingExplain = zakatM > 0
+  const givingExplain = givenMore
+    ? `Your statements show ${S(a.donations)} a month in donations over ${span}${zakatM + planned > 0 ? `, more than the ${S(zakatM + planned)} you plan` : ''}.`
+    : zakatM > 0
     ? `${S(zakatM)} zakat (the yearly amount due ÷ 12) + ${S(planned)} planned giving = ${S(giving)} a month.`
     : planned > 0 ? `Your planned monthly giving: ${S(planned)}.` : 'No monthly giving planned.';
 
@@ -345,14 +349,14 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
 
   const lines: PlanLine[] = [
     { key: 'income', label: 'Income', amount: a.inc, explain: `Your average income over ${span}: ${S(a.inc)} a month.` },
-    { key: 'needs', label: 'Needs', amount: a.needs, explain: `Your average spending on needs (rent, groceries, bills and the like) over ${span}: ${S(a.needs)} a month.` },
+    { key: 'spending', label: 'Your usual spending', amount: a.spend, explain: `Everything you spent on average over ${span}, needs and wants alike: ${S(a.spend)} a month (loan EMIs and donations are counted in their own lines).` },
     { key: 'debt', label: pd.length || !emiSeen ? 'Debt payments' : 'Loan payments', amount: debtAmt, explain: debtExplain },
     { key: 'giving', label: 'Giving', amount: giving, explain: givingExplain },
     { key: 'longTerm', label: ltLabel, amount: ltAmt, explain: ltExplain },
     { key: 'goals', label: 'Short-term goals', amount: goalsAmt, explain: goalsExplain }
   ];
 
-  const left = snap(a.inc - a.needs - debtAmt - giving - ltAmt - goalsAmt);
+  const left = snap(a.inc - a.spend - debtAmt - giving - ltAmt - goalsAmt);
   const guiltFree = Math.max(0, left);
   const shortfall = Math.max(0, -left);
   let biggest: string | null = null;
@@ -362,10 +366,10 @@ export function plan(d: Data, M: Model, fx: Fx, now: string, opts: PlanOpts = {}
     const top = cands.reduce<{ name: string; amt: number } | null>((b, c) => (c.amt > 0 && (!b || c.amt > b.amt) ? c : b), null);
     biggest = top ? top.name : null;
   }
-  const sum = `${S(a.inc)} income − ${S(a.needs)} needs − ${S(debtAmt)} debt − ${S(giving)} giving − ${S(ltAmt)} ${ltName} − ${S(goalsAmt)} goals = ${S(left)}`;
+  const sum = `${S(a.inc)} income − ${S(a.spend)} usual spending − ${S(debtAmt)} debt − ${S(giving)} giving − ${S(ltAmt)} ${ltName} − ${S(goalsAmt)} goals = ${S(left)}`;
   const explain = shortfall > 0
     ? `${sum}, so you're ${S(shortfall)} short each month${biggest ? ` and ${biggest} is the biggest line` : ''}.`
-    : `${sum} to spend guilt-free each month.`;
+    : `${sum} you can spend each month on top of your usual spending, without touching your goals.`;
 
   return { ready: true, lines, guiltFree, shortfall, biggest, longTerm: LT, goals: G.results, debtFree, netWorth: M.netWorth, explain };
 }

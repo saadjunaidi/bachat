@@ -67,10 +67,10 @@ export function sampleData(): Data {
   ];
   s.goals = [
     { id: 'g1', name: 'New phone', price: 150000, currency: 'INR', date: addM(cm, 12), saved: 0, ret: 7, stretchChoice: 'wait' },
-    { id: 'g2', name: 'Umrah', price: 500000, currency: 'INR', date: addM(cm, 4), saved: 0, ret: 7, stretchChoice: 'wait' },
+    { id: 'g2', name: 'Umrah', price: 300000, currency: 'INR', date: addM(cm, 2), saved: 0, ret: 7, stretchChoice: 'wait' },
     { id: 'g3', name: 'Luxury car', price: 5000000, currency: 'INR', date: addM(cm, 13), saved: 0, ret: 7, stretchChoice: 'wait' }
   ];
-  s.settings.longTerm = { ...s.settings.longTerm, type: 'freedom', targetAge: 50 };
+  s.settings.longTerm = { ...s.settings.longTerm, type: 'freedom', targetAge: 55 };
   s.settings.goldPrice = 7750;
   s.settings.silverPrice = 90;
   s.assets = { ...s.assets, currency: 'INR', goldG: 40, investments: 200000 };

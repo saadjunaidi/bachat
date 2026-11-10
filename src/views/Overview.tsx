@@ -92,20 +92,22 @@ export function Overview() {
   const owned = M.bankBal + M.assetsTotal;
   const pillCls = lt.status === 'behind' ? 'bad' : 'good';
   const sr = savingsSummary(M, data);
+  const pm = M.a3.months;
+  const planSpan = pm.length ? (pm.length === 1 ? mlabel(pm[0]) : `${mlabel(pm[0])} to ${mlabel(pm[pm.length - 1])}`) : '';
   const pillTxt = lt.status === 'ahead' ? 'Ahead of target' : lt.status === 'on' ? 'On track' : 'Behind target';
 
   return (
     <>
       <div className="head">
-        <div><p className="label">{partial ? 'Month so far' : 'Month summary'}</p><h1>{mlabel(m)}</h1></div>
-        {M.end && <p className="muted small">Statements up to {dlong(M.end)}</p>}
+        <div><p className="label">Overview</p><h1>Your monthly plan</h1></div>
+        {planSpan && <p className="muted small">Based on your usual month, from {planSpan}</p>}
       </div>
       <div className="grid kpis kpis-top">
-        <Kpi hero label="Guilt-free this month" value={P.ready ? short(P.guiltFree) : '–'} sub={<>
+        <Kpi hero label="Guilt-free each month" value={P.ready ? short(P.guiltFree) : '–'} sub={<>
           <span className="small muted">{!P.ready ? 'Import a full month of statements to see this.'
             : P.shortfall > 0 ? `Short ${short(P.shortfall)}/mo.${P.biggest ? ` ${P.biggest} is the biggest.` : ''}`
-            : P.guiltFree < 1 ? (topGoalName ? `Nothing left over this month — your goals use the rest. ${topGoalName} is the biggest.` : 'Nothing left over this month — your plan uses the rest.')
-            : 'Yours to enjoy. Goals, debts and giving are already covered.'}</span>
+            : P.guiltFree < 1 ? (topGoalName ? `Nothing extra to spend — your goals use what's left. ${topGoalName} is the biggest.` : 'Nothing extra to spend — your usual spending and plan use it all.')
+            : 'Extra you can spend on top of your usual spending. Goals, debts and giving stay on track.'}</span>
           {P.ready && <Explain><p>{P.explain}</p>{P.lines.map((l) => <p key={l.key}><b>{l.label}:</b> {l.explain}</p>)}</Explain>}
         </>} />
         <Kpi label="Net worth" value={short(M.netWorth)} sub={<>
@@ -128,6 +130,10 @@ export function Overview() {
             <span><span className={'pill ' + pillCls}>{pillTxt}</span></span>
             <Explain><p>{ltLine?.explain}</p>{lt.targetMonth && <p>Target month: {mlabel(lt.targetMonth)}.</p>}</Explain>
           </>} />
+      </div>
+      <div className="head head-month">
+        <div><p className="label">{partial ? 'Month so far' : 'Month summary'}</p><h2>{mlabel(m)}</h2></div>
+        {M.end && <p className="muted small">Statements up to {dlong(M.end)}</p>}
       </div>
       <div className="grid kpis">
         <Kpi label="Saved" value={short(o.saved)} sub={<span className="small muted">{isFinite(o.rate) ? pct(o.rate) + ' of income' : 'No income this month'}</span>} />

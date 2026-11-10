@@ -70,7 +70,7 @@ export default function App() {
       <header className="appbar">
         <div className="wrap bar">
           <a className="brand" href="#welcome" onClick={(e) => { e.preventDefault(); go('welcome'); }}>
-            <Logo size={28} />MoneyInMyPocket
+            <Logo size={28} /><span className="brand-name">MoneyInMyPocket</span>
           </a>
           <nav className="tabs" aria-label="Sections">
             {TABS.map((t) => <button key={t.v} className="tab" aria-current={view === t.v ? 'page' : undefined} onClick={() => go(t.v)}>{t.label}</button>)}

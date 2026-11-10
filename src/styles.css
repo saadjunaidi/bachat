@@ -302,3 +302,14 @@ details summary{list-style-position:inside}
 @media (min-width:900px){.w-tips{grid-template-columns:repeat(3,1fr);gap:24px}}
 .w-tips li{line-height:1.55;color:var(--muted);font-size:.94rem}
 .w-tips b{display:block;color:var(--fg);margin-bottom:2px}
+
+/* ---- Phone header: never wider than the screen ---- */
+html,body{overflow-x:clip}
+.brand{min-width:0}
+.brand-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:560px){
+  .bar{gap:6px}
+  .bar:has(.monthpick) .brand-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .monthpick select{max-width:9.5rem;padding-left:10px;padding-right:26px}
+  .gear{width:36px;height:36px}
+}

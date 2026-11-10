@@ -60,7 +60,15 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
     for (let m = months[0]; m <= months[months.length - 1]; m = addM(m, 1)) { all.push(m); if (!MO[m]) MO[m] = blankM(m); }
     months = all;
   }
-  for (const m of months) { const o = MO[m]; o.saved = o.inc - o.exp; o.rate = o.inc > 0 ? o.saved / o.inc : NaN; }
+  // A credit in a spending category is a refund: it reduces that category's spend, but only down to zero.
+  // Anything beyond that (rent received, a sale, a claim payout) is money in, not negative spending.
+  for (const m of months) {
+    const o = MO[m];
+    for (const c of Object.keys(o.cats)) {
+      if (o.cats[c] < 0) { const excess = -o.cats[c]; o.cats[c] = 0; o.exp += excess; o.inc += excess; }
+    }
+    o.saved = o.inc - o.exp; o.rate = o.inc > 0 ? o.saved / o.inc : NaN;
+  }
 
   const acc: Record<string, Account> = {};
   for (const t of A) {
@@ -86,7 +94,7 @@ export function build(d: Data, fx: Fx = EMPTY_FX(d.settings.currency)): Model {
   const avg = (k: 'inc' | 'exp' | 'saved' | 'inv') => (last3.length ? last3.reduce((s, m) => s + MO[m][k], 0) / last3.length : 0);
   const needs: Record<string, number> = {};
   for (const m of months) needs[m] = 0;
-  for (const t of A) if (t.type === 'expense' && isNeed(t.cat, d.settings)) needs[t.m] += -t.amt;
+  for (const m of months) for (const [c, v] of Object.entries(MO[m].cats)) if (isNeed(c, d.settings)) needs[m] += v;
   const avgOf = (f: (m: string) => number) => (last3.length ? last3.reduce((s, m) => s + f(m), 0) / last3.length : 0);
   const a3 = { inc: avg('inc'), exp: avg('exp'), saved: avg('saved'), inv: avg('inv'), rate: NaN, months: last3, needs: avgOf((m) => needs[m]), emi: avgOf((m) => MO[m].cats['Loan EMI'] || 0), spendExEmi: 0 };
   a3.spendExEmi = a3.exp - a3.emi;

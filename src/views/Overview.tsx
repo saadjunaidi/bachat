@@ -83,7 +83,7 @@ export function Overview() {
           </div>}>
           <div className="chart">
             <FlowChart months={ms} selected={m} inc={ms.map((x) => M.MO[x].inc)} exp={ms.map((x) => M.MO[x].exp)}
-              rate={ms.map((x) => { const r = M.MO[x].rate; return isFinite(r) ? Math.max(0, Math.min(1, r)) : null; })} />
+              rate={ms.map((x) => { const r = M.MO[x].rate; return isFinite(r) ? r : null; })} />
           </div>
         </Panel>
         <Panel title="Worth knowing">

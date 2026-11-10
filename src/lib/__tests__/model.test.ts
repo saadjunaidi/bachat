@@ -126,3 +126,36 @@ describe('model fx edge cases', () => {
     expect(M.fxMissing).toEqual(['USD']);
   });
 });
+
+describe('large credits in spending categories', () => {
+  it('a refund larger than the month’s spend in that category never makes spending negative', () => {
+    const d = data('INR');
+    d.accounts = { B: { name: 'B', kind: 'bank', currency: 'INR' } };
+    d.txns = [
+      tx('B', '2026-10-01', 'SALARY ACME', 100000),
+      tx('B', '2026-10-05', 'AMAZON ORDER', -20000),       // Shopping −20,000
+      tx('B', '2026-10-09', 'AMAZON REFUND ORDER', 5000),  // genuine refund: 'refund' rule → Refunds & cashback (income)
+      tx('B', '2026-10-10', 'HOUSE RENT OCT', -30000),      // Rent & housing −30,000 (a need)
+      tx('B', '2026-10-20', 'NEFT SHARMA HOUSE RENT RECEIVED', 400000) // credit matching 'house rent' → Rent & housing
+    ];
+    const o = build(d, EMPTY_FX('INR')).MO['2026-10'];
+    // Rent & housing: −30,000 + 400,000 → floored at 0; the 370,000 excess is money in.
+    expect(o.cats['Rent & housing']).toBe(0);
+    expect(o.exp).toBe(20000);                    // only Shopping remains
+    expect(o.inc).toBe(100000 + 5000 + 370000);   // salary + refund income + excess credit
+    expect(o.saved).toBe(475000 - 20000);
+  });
+  it('needs never go negative because of a large credit', () => {
+    const d = data('INR');
+    d.accounts = { B: { name: 'B', kind: 'bank', currency: 'INR' } };
+    d.txns = ['2026-08', '2026-09', '2026-10'].flatMap((m) => [
+      tx('B', `${m}-01`, 'SALARY ACME', 100000, null),
+      tx('B', `${m}-03`, 'HOUSE RENT', -30000, null),
+      tx('B', `${m}-28`, 'BLINKIT', -10000, null)
+    ]).concat([tx('B', '2026-10-20', 'HOUSE RENT RECEIVED TENANT', 400000, null)]);
+    const M = build(d, EMPTY_FX('INR'));
+    // Oct needs: rent floored to 0 + groceries 10,000 = 10,000; Aug/Sep: 40,000 each → avg 30,000.
+    expect(M.needs['2026-10']).toBe(10000);
+    expect(M.a3.needs).toBe(30000);
+  });
+});

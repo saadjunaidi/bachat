@@ -1,12 +1,58 @@
 import { CCOL } from '../lib/categories';
 import { addM, dlong, mlabel, money, pct, short } from '../lib/format';
-import { insights } from '../lib/model';
+import { insights, rateTone, type Model } from '../lib/model';
+import { yearsToFreedom } from '../lib/finance';
+import type { Data } from '../lib/types';
 import { toPayDebts } from '../lib/debt';
 import { ratesNote } from '../lib/fx';
 import { kindOf } from '../lib/types';
 import { useStore } from '../store';
 import { BalanceChart, DonutChart, FlowChart } from '../components/charts';
 import { Delta, Dot, EmptyState, Explain, Kpi, Panel } from '../components/ui';
+
+/** Savings rate over the last 3 full months, with context and what it means for financial freedom. */
+function SavingsRate({ M, data, thisMonth, goGoals }: { M: Model; data: Data; thisMonth: number; goGoals: () => void }) {
+  const a = M.a3;
+  const last12 = M.complete.slice(-12);
+  const inc12 = last12.reduce((s, m) => s + M.MO[m].inc, 0);
+  const rate12 = inc12 > 0 ? last12.reduce((s, m) => s + M.MO[m].saved, 0) / inc12 : NaN;
+  const r = a.rate;
+  const lt = data.settings.longTerm;
+  const real = (1 + lt.ret / 100) / (1 + lt.infl / 100) - 1;
+  const years = isFinite(r) ? yearsToFreedom(r, real, lt.mult) : null;
+  const tone = rateTone(r);
+  const fill = isFinite(r) ? Math.max(0, Math.min(1, r / 0.7)) : 0;
+  const verdict = !isFinite(r) ? 'Import a full month of statements to see this.'
+    : r < 0 ? 'You spent more than you earned.'
+    : r < 0.2 ? 'Below 20%, the usual minimum.'
+    : r < 0.4 ? 'Healthy. 40% or more builds wealth fast.'
+    : 'Excellent. You’re building wealth fast.';
+  return (
+    <Panel title="Savings rate" aside={<span className="small muted">last {a.months.length || 3} full months</span>}>
+      <div className="srate">
+        <div className="srate-top"><b className={'srate-v ' + tone}>{isFinite(r) ? pct(r) : '–'}</b><span className="small">{verdict}</span></div>
+        <div className="srate-gauge" role="img" aria-label={isFinite(r) ? `Savings rate ${pct(r)}; markers at 20% and 40%` : 'No savings rate yet'}>
+          <i className={tone} style={{ width: fill * 100 + '%' }} />
+          <span className="srate-mark" style={{ left: (0.2 / 0.7) * 100 + '%' }}><em>20%</em></span>
+          <span className="srate-mark" style={{ left: (0.4 / 0.7) * 100 + '%' }}><em>40%</em></span>
+        </div>
+        <dl className="srate-facts">
+          <div><dt>This month</dt><dd>{isFinite(thisMonth) ? pct(thisMonth) : '–'}</dd></div>
+          <div><dt>Last 12 months</dt><dd>{isFinite(rate12) ? pct(rate12) : '–'}</dd></div>
+        </dl>
+        {isFinite(r) && (
+          <p className="srate-free">{years == null ? 'At this rate, financial freedom is out of reach. Saving even 10% starts the clock.'
+            : years === 0 ? 'You spend almost nothing of what you earn.'
+            : <>At this rate, someone starting from zero is financially free in about <b>{Math.ceil(years)} years</b>. <button className="linkbtn" onClick={goGoals}>See your own date</button></>}</p>
+        )}
+        {isFinite(r) && <Explain>
+          <p>Savings rate = (money in − money out) ÷ money in. Over the last {a.months.length} full months: {short(a.inc)} in, {short(a.exp)} out a month, so you keep {pct(r)}.</p>
+          {years != null && years > 0 && <p>Years to freedom assumes you keep saving {pct(r)}, your investments grow {(real * 100).toFixed(1)}% a year after inflation, and you're free at {lt.mult}× your yearly spending (your Goals settings). It starts from zero; your own date on Goals also counts what you already have.</p>}
+        </Explain>}
+      </div>
+    </Panel>
+  );
+}
 
 export function Overview() {
   const { M, month: m, go, P, data, fx } = useStore();
@@ -91,6 +137,7 @@ export function Overview() {
             {insights(M, m).map((i) => <div key={i.t} className={'ins ' + i.tone}><div><b>{i.t}</b><p>{i.d}</p></div></div>)}
           </div>
         </Panel>
+        <SavingsRate M={M} data={data} thisMonth={o.rate} goGoals={() => go('goals')} />
         <Panel title="Where it went" aside={<button className="linkbtn small" onClick={() => go('spending')}>See all</button>}>
           {donut.length ? (
             <div className="donut-wrap">
@@ -111,7 +158,7 @@ export function Overview() {
             {tp.length ? tp.map(([n, v]) => <div className="row" key={n}><span className="t">{n}</span><span className="a">{money(v)}</span></div>) : <p className="empty">Nothing yet.</p>}
           </div>
         </Panel>
-        <Panel title="Total in the bank" aside={<span className="small muted">month-end balance</span>}>
+        <Panel className="span3" title="Total in the bank" aside={<span className="small muted">month-end balance</span>}>
           {M.hasBal ? <div className="chart sm"><BalanceChart months={ms} values={M.trend.slice(-12)} /></div>
             : <p className="muted small">Choose the Balance column when importing to see this.</p>}
         </Panel>

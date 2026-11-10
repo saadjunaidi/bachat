@@ -17,3 +17,15 @@ export function monthsTo(target: number, saved: number, pmt: number, yearly: num
   for (let k = 1; k <= 1200; k++) { b = b * (1 + r) + pmt; if (b >= target) return k; }
   return Infinity;
 }
+
+/**
+ * Years until someone starting from zero can live off investments, given only their savings rate.
+ * Income is 1 a month: they save `rate` and spend `1 − rate`; they're free at `mult` × yearly spending.
+ * Null when they save nothing (never), 0 when they spend nothing.
+ */
+export function yearsToFreedom(rate: number, realYearly: number, mult: number): number | null {
+  if (!isFinite(rate) || rate <= 0) return null;
+  if (rate >= 1) return 0;
+  const k = monthsTo(mult * 12 * (1 - rate), 0, rate, realYearly);
+  return isFinite(k) ? k / 12 : null;
+}

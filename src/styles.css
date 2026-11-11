@@ -90,8 +90,12 @@ main{padding-block:16px 8px}
 .banner p{flex:1 1 220px;min-width:0}
 .feedback{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:10px 12px 10px 14px;margin-top:14px}
 .feedback p{flex:1 1 260px;min-width:0}
-.feedback p a{color:var(--accent);font-weight:600;overflow-wrap:anywhere}
-.feedback a.btn{text-decoration:none}
+.feedback .fb-addr{color:var(--accent);overflow-wrap:anywhere;user-select:all}
+.fb-menu{position:relative;display:inline-block}
+.fb-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:210px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;text-align:left}
+.site-foot .fb-pop{bottom:calc(100% + 6px);top:auto;left:50%;right:auto;transform:translateX(-50%)}
+.fb-pop a,.fb-pop button{display:block;width:100%;padding:10px 12px;border-radius:8px;color:var(--fg);text-decoration:none;font:inherit;font-size:.92rem;background:none;border:0;text-align:left;cursor:pointer}
+.fb-pop a:hover,.fb-pop button:hover,.fb-pop a:focus-visible,.fb-pop button:focus-visible{background:var(--surface-2)}
 .feedback-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .site-foot{padding:24px 16px calc(92px + env(safe-area-inset-bottom,0px));text-align:center}
 @media (min-width:880px){.site-foot{padding-bottom:40px}}

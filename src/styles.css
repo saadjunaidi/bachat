@@ -68,7 +68,7 @@ textarea{width:100%;min-height:110px;font-family:var(--mono);font-size:.8rem}
 .bn{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;color:var(--muted);font-size:.72rem;font-weight:600;cursor:pointer;border-radius:10px}
 .bn svg{width:22px;height:22px}
 .bn[aria-current="page"]{color:var(--accent)}
-main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
+main{padding-block:16px 8px}
 @media (max-width:419.98px){.bn{font-size:10px}.bn svg{width:22px;height:22px}}
 .gear{margin-left:auto;border:0;background:transparent;color:var(--muted);width:40px;height:40px;border-radius:10px;display:grid;place-items:center;cursor:pointer;flex:none}
 .gear:hover{color:var(--fg);background:var(--surface-2)}
@@ -82,12 +82,20 @@ main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 .fxrow input{width:130px}
 @media (min-width:880px){
   .tabs{display:flex}.bottomnav{display:none}
-  main{padding-block:24px 48px}
+  main{padding-block:24px 8px}
 }
 
 /* Banner */
 .banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);border-radius:var(--r);padding:12px 14px;margin-top:14px}
 .banner p{flex:1 1 220px;min-width:0}
+.feedback{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r);padding:10px 12px 10px 14px;margin-top:14px}
+.feedback p{flex:1 1 260px;min-width:0}
+.feedback p a{color:var(--accent);font-weight:600;overflow-wrap:anywhere}
+.feedback a.btn{text-decoration:none}
+.feedback-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.site-foot{padding:24px 16px calc(92px + env(safe-area-inset-bottom,0px));text-align:center}
+@media (min-width:880px){.site-foot{padding-bottom:40px}}
+.site-foot a{color:inherit;text-decoration:underline;overflow-wrap:anywhere}
 
 /* Grid + panels */
 .view{display:grid;gap:14px}

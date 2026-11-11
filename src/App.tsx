@@ -11,6 +11,7 @@ import { Settings } from './components/Settings';
 import { TxSheet } from './components/TxSheet';
 import { Logo } from './components/Logo';
 import { Welcome } from './views/Welcome';
+import { FeedbackBar, FeedbackFooter } from './components/Feedback';
 
 const TABS: { v: View; label: string; icon: ReactElement }[] = [
   { v: 'overview', label: 'Overview', icon: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /> },
@@ -92,7 +93,7 @@ export default function App() {
         </div>
       </header>
 
-      {view !== 'welcome' && <div className="wrap"><Banner /></div>}
+      {view !== 'welcome' && <div className="wrap"><Banner /><FeedbackBar /></div>}
 
       <main className="wrap view">
         {view === 'welcome' && <Welcome />}
@@ -103,6 +104,7 @@ export default function App() {
         {view === 'giving' && <Giving />}
         {view === 'statements' && <Statements />}
       </main>
+      <FeedbackFooter />
 
       <nav className="bottomnav" aria-label="Sections">
         {TABS.map((t) => (
